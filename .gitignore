@@ -1,0 +1,9 @@
+# Node
+node_modules/
+dist/
+.env.local
+.env.production
+
+# Misc
+.DS_Store
+*.log
