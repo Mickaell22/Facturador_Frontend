@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import toast from 'react-hot-toast'
 import { getFacturaPublica } from '../api'
+import Lightbox from '../components/Lightbox'
 
 export default function FacturaPublica() {
   const { token } = useParams()
@@ -10,6 +11,7 @@ export default function FacturaPublica() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [noValido, setNoValido] = useState(false)
+  const [lightboxSrc, setLightboxSrc] = useState(null)
 
   useEffect(() => {
     const cargar = async () => {
@@ -55,6 +57,7 @@ export default function FacturaPublica() {
   const itemsLlegados = data.items.filter((i) => i.llegado)
 
   return (
+    <>
     <div className="min-h-screen bg-gray-100 py-6 px-4">
       <div className="no-print flex gap-3 justify-center mb-6">
         <button onClick={handleImprimir} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700">
@@ -81,7 +84,12 @@ export default function FacturaPublica() {
               {data.items.map((item) => (
                 <div key={item.id} className="flex items-center gap-3">
                   {item.imagen_url && (
-                    <img src={item.imagen_url} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100 flex-shrink-0" />
+                    <img
+                      src={item.imagen_url}
+                      alt=""
+                      className="w-10 h-10 object-cover rounded-lg border border-gray-100 flex-shrink-0 cursor-zoom-in"
+                      onClick={() => setLightboxSrc(item.imagen_url)}
+                    />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${!item.llegado ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
@@ -148,5 +156,8 @@ export default function FacturaPublica() {
         </div>
       </div>
     </div>
+
+    {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+    </>
   )
 }

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import Lightbox from './Lightbox'
 
 export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
   const inputRef = useRef(null)
   const [activo, setActivo] = useState(false)
+  const [lightbox, setLightbox] = useState(false)
 
   const procesar = (file) => {
     if (!file || !file.type.startsWith('image/')) return
@@ -28,15 +30,25 @@ export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
 
   if (imageUrl) {
     return (
-      <div className="relative group w-12 h-12 flex-shrink-0">
-        <img
-          src={imageUrl}
-          alt=""
-          className="w-12 h-12 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer"
-          onClick={() => window.open(imageUrl, '_blank')}
-        />
-        <label className="absolute inset-0 bg-black bg-opacity-50 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-          <span className="text-white text-xs">cambiar</span>
+      <>
+        <div className="relative group w-12 h-12 flex-shrink-0">
+          {/* Click en la imagen abre el lightbox */}
+          <img
+            src={imageUrl}
+            alt=""
+            className="w-12 h-12 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-zoom-in"
+            onClick={() => setLightbox(true)}
+          />
+
+          {/* Boton "cambiar" separado — aparece en hover, no cubre la imagen */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); inputRef.current.click() }}
+            className="absolute -bottom-1 -right-1 bg-gray-700 text-white text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity leading-tight"
+          >
+            cambiar
+          </button>
+
           <input
             ref={inputRef}
             type="file"
@@ -44,8 +56,10 @@ export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
             className="hidden"
             onChange={(e) => e.target.files[0] && procesar(e.target.files[0])}
           />
-        </label>
-      </div>
+        </div>
+
+        {lightbox && <Lightbox src={imageUrl} onClose={() => setLightbox(false)} />}
+      </>
     )
   }
 

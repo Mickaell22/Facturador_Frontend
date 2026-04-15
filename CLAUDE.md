@@ -3,7 +3,7 @@
 ## Stack
 - React 18
 - Vite 5
-- Tailwind CSS 3
+- Tailwind CSS 3 (darkMode: 'class')
 - React Router DOM 6
 - Axios (llamadas API)
 - html2canvas (exportar factura como imagen)
@@ -21,31 +21,44 @@ frontend/
 │   └── favicon.webp
 ├── .env.local           # VITE_API_URL (no se sube)
 └── src/
-    ├── main.jsx
-    ├── App.jsx
+    ├── main.jsx             # extrae ?token= de URL antes de montar React
+    ├── App.jsx              # rutas + PrivateRoute
     ├── index.css
     ├── api/
-    │   └── index.js         # todas las llamadas al backend con axios
+    │   └── index.js         # axios con interceptores JWT; getFacturaPublica sin auth
+    ├── hooks/
+    │   └── useDarkMode.js   # persiste preferencia en localStorage
     ├── components/
-    │   ├── Layout.jsx        # navbar + Outlet
+    │   ├── Layout.jsx        # navbar + boton Salir + toggle dark mode
     │   ├── SidePanel.jsx     # panel lateral deslizable (reemplaza modales)
-    │   └── ImageUpload.jsx   # subida de imagen via Ctrl+V, drag&drop o file picker
+    │   └── ImageUpload.jsx   # subida de imagen via Ctrl+V o file picker
     └── pages/
-        ├── Dashboard.jsx       # cards de metricas + lista de pedidos
+        ├── Login.jsx           # login con Google (unico metodo, sin registro)
+        ├── Dashboard.jsx       # stats + lista de pedidos con buscador
         ├── NuevoPedido.jsx     # formulario crear pedido
-        ├── PedidoDetalle.jsx   # ver/editar pedido con clientes, items y pagos
+        ├── PedidoDetalle.jsx   # ver/editar pedido; boton "Copiar enlace" por cliente
         ├── Clientes.jsx        # lista de clientes con aliases
         ├── ClienteDetalle.jsx  # historial completo de un cliente con totales
-        └── Factura.jsx         # resumen imprimible + exportar como imagen
+        ├── Factura.jsx         # resumen imprimible (requiere JWT)
+        └── FacturaPublica.jsx  # resumen publico por token (sin login)
 ```
 
 ## Rutas
-- `/` — Dashboard
-- `/pedidos/nuevo` — Crear pedido
-- `/pedidos/:id` — Detalle de pedido
-- `/clientes` — Lista de clientes
-- `/clientes/:id` — Historial de cliente
-- `/factura/:pcId` — Factura imprimible (requiere pedido_id en sessionStorage)
+- `/login` — Pantalla de login con Google
+- `/` — Dashboard (protegida)
+- `/pedidos/nuevo` — Crear pedido (protegida)
+- `/pedidos/:id` — Detalle de pedido (protegida)
+- `/clientes` — Lista de clientes (protegida)
+- `/clientes/:id` — Historial de cliente (protegida)
+- `/factura/:pcId` — Factura imprimible (protegida, requiere pedido_id en sessionStorage)
+- `/p/:token` — Factura publica por token (SIN login, para compartir por WhatsApp)
+
+## Autenticacion
+- JWT guardado en localStorage bajo la clave `token`
+- main.jsx extrae `?token=` de la URL sincrónicamente antes de que React monte
+- PrivateRoute redirige a /login si no hay token
+- Interceptor de respuesta: si llega 401, limpia token y redirige a /login
+- Session dura 1 dia; al vencer el backend retorna 401 y se redirige automaticamente
 
 ## Variables de entorno
 ```
@@ -64,13 +77,16 @@ npm run dev
 - Sin valores hardcodeados
 - Componentes en PascalCase, funciones en camelCase
 - Todas las llamadas API en src/api/index.js
-- Errores siempre con toast.error() en catch
+- Errores siempre con toast.error() en catch; mostrar err.response?.data?.detail si existe
 - Formularios se abren en SidePanel, nunca inline ni en modal
 - La clase CSS no-print oculta elementos en impresion
 - Valores monetarios con .toFixed(2)
 - ImageUpload: click = enfoca para Ctrl+V, con imagen = hover muestra "cambiar"
+- FacturaPublica y Login tienen fondo blanco fijo (no dependen del Layout)
 
 ## Patrones UI
-- SidePanel se usa para: agregar cliente, agregar item, registrar pago, crear/editar cliente
-- Dashboard muestra StatCards con metricas globales arriba y lista de pedidos abajo
-- ClienteDetalle muestra ResumenCards + historial con barra de progreso de pago
+- SidePanel para: agregar cliente, agregar item, registrar pago, crear/editar cliente
+- Dashboard: StatCards arriba + buscador (filtra por cliente, numero o fecha) + lista de pedidos
+- PedidoDetalle: boton "Ver factura" abre /factura/:pcId; "Copiar enlace" copia /p/:token al portapapeles
+- ClienteDetalle: ResumenCards + historial con barra de progreso de pago
+- Los registros eliminados no aparecen en la UI (el backend los filtra); el borrado es siempre logico
