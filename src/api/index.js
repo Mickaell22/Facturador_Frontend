@@ -4,6 +4,25 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
 })
 
+// Agrega el token JWT a cada request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// Si el token expira o es invalido, redirige al login
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+    }
+    return Promise.reject(err)
+  }
+)
+
 // ── Clientes ──────────────────────────────────────────
 export const getClientes = () => api.get('/clientes')
 export const getCliente = (id) => api.get(`/clientes/${id}`)
@@ -44,3 +63,10 @@ export const uploadComprobante = (pcId, pagoId, file) => {
   form.append('file', file)
   return api.post(`/pedido-clientes/${pcId}/pagos/${pagoId}/comprobante`, form)
 }
+
+// ── Stats ─────────────────────────────────────────────
+export const getDashboardStats = () => api.get('/stats/dashboard')
+export const getHistorialCliente = (id) => api.get(`/stats/clientes/${id}`)
+
+// ── Publico (sin auth) ────────────────────────────────
+export const getFacturaPublica = (token) => api.get(`/public/factura/${token}`)
