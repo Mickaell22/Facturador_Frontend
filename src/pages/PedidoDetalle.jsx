@@ -26,6 +26,7 @@ export default function PedidoDetalle() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState('')
   const [busquedaCombo, setBusquedaCombo] = useState('')
   const [comboAbierto, setComboAbierto] = useState(false)
+  const [colapsados, setColapsados] = useState(new Set())
   const [editandoComision, setEditandoComision] = useState(null)
   const [comisionInput, setComisionInput] = useState('')
   const [panelEditItem, setPanelEditItem] = useState(null)
@@ -299,10 +300,21 @@ export default function PedidoDetalle() {
                     </button>
                   )}
                   <button onClick={() => quitarCliente(pc.cliente_id)} className="text-sm text-red-400 hover:underline">Quitar</button>
+                  <button
+                    onClick={() => setColapsados((prev) => {
+                      const next = new Set(prev)
+                      next.has(pc.id) ? next.delete(pc.id) : next.add(pc.id)
+                      return next
+                    })}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+                    title={colapsados.has(pc.id) ? 'Expandir' : 'Colapsar'}
+                  >
+                    {colapsados.has(pc.id) ? '▸' : '▾'}
+                  </button>
                 </div>
               </div>
 
-              <div className="p-5 space-y-4">
+              {!colapsados.has(pc.id) && <div className="p-5 space-y-4">
                 {/* Items */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -422,7 +434,7 @@ export default function PedidoDetalle() {
                     </div>
                   )}
                 </div>
-              </div>
+              </div>}
             </div>
           ))}
         </div>

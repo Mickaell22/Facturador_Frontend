@@ -100,7 +100,6 @@ export default function Factura() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className={`text-sm font-medium ${!item.llegado ? 'text-gray-300' : 'text-gray-800'}`}>${Number(item.precio).toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">{item.llegado ? 'llego' : 'pendiente'}</p>
                   </div>
                 </div>
               ))}
