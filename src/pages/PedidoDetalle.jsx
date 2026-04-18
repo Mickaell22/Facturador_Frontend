@@ -155,6 +155,14 @@ export default function PedidoDetalle() {
     day: '2-digit', month: 'long', year: 'numeric',
   })
 
+  const resumenPedido = pedido.clientes.reduce(
+    (acc, pc) => ({
+      porCobrar: acc.porCobrar + Math.max(0, Number(pc.saldo)),
+      cobrado: acc.cobrado + Number(pc.total_pagado),
+    }),
+    { porCobrar: 0, cobrado: 0 }
+  )
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -171,6 +179,23 @@ export default function PedidoDetalle() {
           + Agregar cliente
         </button>
       </div>
+
+      {pedido.clientes.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Clientes</p>
+            <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{pedido.clientes.length}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Por cobrar</p>
+            <p className="text-xl font-bold text-red-500">${resumenPedido.porCobrar.toFixed(2)}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Cobrado</p>
+            <p className="text-xl font-bold text-green-500">${resumenPedido.cobrado.toFixed(2)}</p>
+          </div>
+        </div>
+      )}
 
       {pedido.clientes.length === 0 ? (
         <p className="text-center py-20 text-gray-400">Agrega un cliente para comenzar.</p>
