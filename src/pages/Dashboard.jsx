@@ -172,9 +172,9 @@ export default function Dashboard() {
               <div
                 key={p.id}
                 onClick={() => navigate(`/pedidos/${p.id}`)}
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 cursor-pointer hover:shadow-md dark:hover:shadow-gray-800 transition-shadow flex items-center justify-between"
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 cursor-pointer hover:shadow-md dark:hover:shadow-gray-800 transition-shadow"
               >
-                <div>
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-gray-800 dark:text-gray-100">
                       Pedido #{p.numero ?? p.id}
@@ -184,27 +184,37 @@ export default function Dashboard() {
                         day: '2-digit', month: 'short', year: 'numeric',
                       })}
                     </span>
-                  </div>
-                  <div className="flex gap-3 mt-1 text-sm">
-                    <span className="text-gray-400">
-                      {p.total_clientes} cliente{p.total_clientes !== 1 ? 's' : ''}
-                    </span>
                     {p.total_pendientes > 0 ? (
-                      <span className="text-orange-500 font-medium">
+                      <span className="text-xs text-orange-500 font-medium">
                         {p.total_pendientes} pendiente{p.total_pendientes !== 1 ? 's' : ''}
                       </span>
                     ) : p.total_clientes > 0 ? (
-                      <span className="text-green-500 font-medium">Todo pagado</span>
+                      <span className="text-xs text-green-500 font-medium">Todo pagado</span>
                     ) : null}
                   </div>
-                  {p.notas && <p className="text-xs text-gray-400 mt-1">{p.notas}</p>}
+                  <button
+                    onClick={(e) => handleDelete(p.id, e)}
+                    className="text-gray-300 dark:text-gray-600 hover:text-red-400 text-sm px-2 py-1 rounded"
+                  >
+                    Eliminar
+                  </button>
                 </div>
-                <button
-                  onClick={(e) => handleDelete(p.id, e)}
-                  className="text-gray-300 dark:text-gray-600 hover:text-red-400 text-sm px-2 py-1 rounded"
-                >
-                  Eliminar
-                </button>
+                <div className="flex gap-4 mt-2 text-sm">
+                  <span className="text-gray-400">
+                    {p.total_clientes} cliente{p.total_clientes !== 1 ? 's' : ''}
+                  </span>
+                  {p.total_clientes > 0 && (
+                    <>
+                      <span className="text-red-500 font-medium">
+                        por cobrar ${Number(p.total_por_cobrar).toFixed(2)}
+                      </span>
+                      <span className="text-green-500 font-medium">
+                        cobrado ${Number(p.total_cobrado).toFixed(2)}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {p.notas && <p className="text-xs text-gray-400 mt-1">{p.notas}</p>}
               </div>
             ))}
           </div>
