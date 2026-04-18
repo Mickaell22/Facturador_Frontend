@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getHistorialCliente } from '../api'
 import toast from 'react-hot-toast'
-import { usePrivacy } from '../context/PrivacyContext'
 
 function ResumenCard({ label, value, color = 'text-gray-800 dark:text-gray-100' }) {
   return (
@@ -18,8 +17,6 @@ export default function ClienteDetalle() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const { privado } = usePrivacy()
-  const oculto = '••••'
 
   useEffect(() => {
     const cargar = async () => {
@@ -53,11 +50,11 @@ export default function ClienteDetalle() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <ResumenCard label="Pedidos" value={resumen.total_pedidos} />
-        <ResumenCard label="Total gastado" value={privado ? oculto : `$${resumen.total_gastado.toFixed(2)}`} />
-        <ResumenCard label="Total pagado" value={privado ? oculto : `$${resumen.total_pagado.toFixed(2)}`} color="text-green-500" />
+        <ResumenCard label="Total gastado" value={`$${resumen.total_gastado.toFixed(2)}`} />
+        <ResumenCard label="Total pagado" value={`$${resumen.total_pagado.toFixed(2)}`} color="text-green-500" />
         <ResumenCard
           label="Saldo pendiente"
-          value={privado ? oculto : `$${resumen.total_pendiente.toFixed(2)}`}
+          value={`$${resumen.total_pendiente.toFixed(2)}`}
           color={resumen.total_pendiente > 0 ? 'text-red-500' : 'text-green-500'}
         />
       </div>
@@ -100,9 +97,9 @@ export default function ClienteDetalle() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{privado ? oculto : `$${h.total.toFixed(2)}`}</p>
-                  {h.saldo > 0 && <p className="text-sm text-red-500">{privado ? oculto : `debe $${h.saldo.toFixed(2)}`}</p>}
-                  {h.saldo <= 0 && h.pagado > 0 && <p className="text-sm text-green-500">{privado ? oculto : `pagado $${h.pagado.toFixed(2)}`}</p>}
+                  <p className="font-semibold text-gray-800 dark:text-gray-100">${h.total.toFixed(2)}</p>
+                  {h.saldo > 0 && <p className="text-sm text-red-500">debe ${h.saldo.toFixed(2)}</p>}
+                  {h.saldo <= 0 && h.pagado > 0 && <p className="text-sm text-green-500">pagado ${h.pagado.toFixed(2)}</p>}
                 </div>
               </div>
               {h.total > 0 && (

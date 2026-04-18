@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
-  const { privado } = usePrivacy()
+  const { privado, revelar } = usePrivacy()
   const oculto = '••••'
   const navigate = useNavigate()
 
@@ -55,6 +55,19 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {stats && (
+        <div>
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={revelar}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+              privado
+                ? 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                : 'text-blue-500 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800'
+            }`}
+          >
+            {privado ? 'Mostrar cifras' : 'Ocultar'}
+          </button>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Total pedidos" value={stats.total_pedidos} />
           <StatCard
@@ -74,6 +87,7 @@ export default function Dashboard() {
             color="text-green-500"
             sub="pagos registrados"
           />
+        </div>
         </div>
       )}
 

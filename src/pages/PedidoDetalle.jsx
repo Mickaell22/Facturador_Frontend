@@ -5,10 +5,10 @@ import SidePanel from '../components/SidePanel'
 import ImageUpload from '../components/ImageUpload'
 import {
   getPedido, getClientes, addClienteToPedido, removeClienteFromPedido,
+  updateComisionPedidoCliente,
   createItem, updateItem, deleteItem, uploadItemImagen,
   createPago, deletePago, uploadComprobante,
 } from '../api'
-import { usePrivacy } from '../context/PrivacyContext'
 
 const inputCls = 'w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500'
 const selectCls = 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -26,8 +26,10 @@ export default function PedidoDetalle() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState('')
   const [busquedaCombo, setBusquedaCombo] = useState('')
   const [comboAbierto, setComboAbierto] = useState(false)
-  const { privado } = usePrivacy()
-  const oculto = '••••'
+  const [editandoComision, setEditandoComision] = useState(null)
+  const [comisionInput, setComisionInput] = useState('')
+  const [panelEditItem, setPanelEditItem] = useState(null)
+  const [formEditItem, setFormEditItem] = useState({ link: '', articulo: '', precio: '' })
   const [formItem, setFormItem] = useState({ link: '', articulo: '', precio: '' })
   const [formPago, setFormPago] = useState({ monto: '', tipo: 'transferencia', notas: '' })
   const [busquedaPedido, setBusquedaPedido] = useState('')
@@ -61,6 +63,31 @@ export default function PedidoDetalle() {
     if (!confirm('Quitar cliente del pedido? Se eliminaran sus items y pagos.')) return
     try { await removeClienteFromPedido(id, clienteId); cargar() }
     catch { toast.error('Error al quitar cliente') }
+  }
+
+  const guardarComision = async (clienteId) => {
+    const val = parseFloat(comisionInput)
+    if (isNaN(val) || val < 0) return toast.error('Comision invalida')
+    try {
+      await updateComisionPedidoCliente(id, clienteId, val)
+      setEditandoComision(null)
+      cargar()
+    } catch { toast.error('Error al actualizar comision') }
+  }
+
+  const guardarEditItem = async (e, pc) => {
+    e.preventDefault()
+    if (!formEditItem.precio) return toast.error('El precio es requerido')
+    try {
+      await updateItem(pc.id, panelEditItem.id, {
+        link: formEditItem.link || null,
+        articulo: formEditItem.articulo || null,
+        precio: parseFloat(formEditItem.precio),
+      })
+      setPanelEditItem(null)
+      cargar()
+      toast.success('Articulo actualizado')
+    } catch { toast.error('Error al actualizar articulo') }
   }
 
   const agregarItem = async (e, pc) => {
@@ -200,9 +227,33 @@ export default function PedidoDetalle() {
             <div key={pc.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
               {/* Header cliente */}
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-800 dark:text-gray-100">{pc.cliente_nombre}</span>
-                  <span className="ml-2 text-xs text-gray-400">comision ${Number(pc.cliente_comision).toFixed(2)}/item</span>
+                  {editandoComision === pc.cliente_id ? (
+                    <form onSubmit={(e) => { e.preventDefault(); guardarComision(pc.cliente_id) }} className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={comisionInput}
+                        onChange={(e) => setComisionInput(e.target.value)}
+                        autoFocus
+                        className="w-16 border border-blue-400 rounded px-1 py-0.5 text-xs text-gray-800 dark:text-gray-100 dark:bg-gray-700 focus:outline-none"
+                      />
+                      <span className="text-xs text-gray-400">/item</span>
+                      <button type="submit" className="text-xs text-blue-500 hover:underline">OK</button>
+                      <button type="button" onClick={() => setEditandoComision(null)} className="text-xs text-gray-400 hover:underline">Cancelar</button>
+                    </form>
+                  ) : (
+                    <button
+                      onClick={() => { setEditandoComision(pc.cliente_id); setComisionInput(String(Number(pc.cliente_comision))) }}
+                      className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
+                      title="Editar comision de este pedido"
+                    >
+                      comision ${Number(pc.cliente_comision).toFixed(2)}/item
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-4">
                   <button
@@ -256,7 +307,7 @@ export default function PedidoDetalle() {
                             {!item.articulo && !item.link && <span className="text-xs text-gray-400">Item #{item.numero}</span>}
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{privado ? oculto : `$${Number(item.precio).toFixed(2)}`}</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">${Number(item.precio).toFixed(2)}</span>
                             <button
                               onClick={() => toggleLlegado(pc, item)}
                               title={item.llegado ? 'Llego' : 'Marcar como llegado'}
@@ -267,6 +318,13 @@ export default function PedidoDetalle() {
                               }`}
                             >
                               {item.llegado ? '1' : ''}
+                            </button>
+                            <button
+                              onClick={() => { setPanelEditItem({ ...item, _pc: pc }); setFormEditItem({ link: item.link || '', articulo: item.articulo || '', precio: String(item.precio || '') }) }}
+                              className="text-gray-300 dark:text-gray-600 hover:text-blue-400 text-xs px-1"
+                              title="Editar articulo"
+                            >
+                              Editar
                             </button>
                             <button onClick={() => eliminarItem(pc, item.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-400 text-sm w-5 h-5 flex items-center justify-center">
                               &times;
@@ -282,23 +340,23 @@ export default function PedidoDetalle() {
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-1 text-sm">
                   <div className="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>Subtotal ({pc.items.filter((i) => i.llegado).length} llegados)</span>
-                    <span>{privado ? oculto : `$${Number(pc.subtotal).toFixed(2)}`}</span>
+                    <span>${Number(pc.subtotal).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>Comision</span>
-                    <span>{privado ? oculto : `$${Number(pc.comision).toFixed(2)}`}</span>
+                    <span>${Number(pc.comision).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-gray-800 dark:text-gray-100">
                     <span>Total</span>
-                    <span>{privado ? oculto : `$${Number(pc.total).toFixed(2)}`}</span>
+                    <span>${Number(pc.total).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>Pagado</span>
-                    <span className="text-green-500">{privado ? oculto : `-$${Number(pc.total_pagado).toFixed(2)}`}</span>
+                    <span className="text-green-500">-${Number(pc.total_pagado).toFixed(2)}</span>
                   </div>
                   <div className={`flex justify-between font-bold text-base pt-1 border-t border-gray-100 dark:border-gray-700 ${Number(pc.saldo) > 0 ? 'text-red-500' : 'text-green-500'}`}>
                     <span>Saldo pendiente</span>
-                    <span>{privado ? oculto : `$${Number(pc.saldo).toFixed(2)}`}</span>
+                    <span>${Number(pc.saldo).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -323,7 +381,7 @@ export default function PedidoDetalle() {
                           <ImageUpload imageUrl={pago.comprobante_url} onUpload={(file) => subirComprobante(pc, pago.id, file)} label="comp." />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-green-500">{privado ? oculto : `$${Number(pago.monto).toFixed(2)}`}</span>
+                              <span className="text-sm font-medium text-green-500">${Number(pago.monto).toFixed(2)}</span>
                               <span className="text-xs text-gray-400 capitalize">{pago.tipo}</span>
                             </div>
                             {pago.notas && <p className="text-xs text-gray-400">{pago.notas}</p>}
@@ -446,6 +504,33 @@ export default function PedidoDetalle() {
             </div>
             <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
               Registrar pago
+            </button>
+          </form>
+        )}
+      </SidePanel>
+
+      {/* Panel: editar item */}
+      <SidePanel
+        open={!!panelEditItem}
+        onClose={() => setPanelEditItem(null)}
+        title={panelEditItem ? `Editar articulo — ${panelEditItem._pc?.cliente_nombre ?? ''}` : ''}
+      >
+        {panelEditItem && (
+          <form onSubmit={(e) => guardarEditItem(e, panelEditItem._pc)} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link de Temu</label>
+              <input type="text" placeholder="https://share.temu.com/..." value={formEditItem.link} onChange={(e) => setFormEditItem({ ...formEditItem, link: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del articulo</label>
+              <input type="text" placeholder="Opcional" value={formEditItem.articulo} onChange={(e) => setFormEditItem({ ...formEditItem, articulo: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio <span className="text-red-500">*</span></label>
+              <input type="number" step="0.01" min="0" placeholder="0.00" value={formEditItem.precio} onChange={(e) => setFormEditItem({ ...formEditItem, precio: e.target.value })} required className={inputCls} />
+            </div>
+            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+              Guardar cambios
             </button>
           </form>
         )}

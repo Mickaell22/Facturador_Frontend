@@ -1,10 +1,8 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import useDarkMode from '../hooks/useDarkMode'
-import { usePrivacy } from '../context/PrivacyContext'
 
 export default function Layout() {
   const [dark, setDark] = useDarkMode()
-  const { privado, revelar } = usePrivacy()
   const navigate = useNavigate()
 
   const linkClass = ({ isActive }) =>
@@ -30,19 +28,8 @@ export default function Layout() {
               <NavLink to="/clientes" className={linkClass}>Clientes</NavLink>
             </nav>
             <button
-              onClick={revelar}
-              className={`ml-2 p-1.5 rounded-lg transition-colors text-sm ${
-                privado
-                  ? 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  : 'text-blue-500 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50'
-              }`}
-              title={privado ? 'Mostrar cifras (7 seg)' : 'Ocultar cifras'}
-            >
-              {privado ? 'Mostrar' : 'Ocultar'}
-            </button>
-            <button
               onClick={() => setDark(!dark)}
-              className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
+              className="ml-2 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
               title={dark ? 'Modo claro' : 'Modo oscuro'}
             >
               {dark ? 'Claro' : 'Oscuro'}
