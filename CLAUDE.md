@@ -31,7 +31,8 @@ frontend/
     ├── components/
     │   ├── Layout.jsx        # navbar + boton Salir + toggle dark mode
     │   ├── SidePanel.jsx     # panel lateral deslizable (reemplaza modales)
-    │   └── ImageUpload.jsx   # subida de imagen via Ctrl+V o file picker
+    │   ├── ImageUpload.jsx   # subida de imagen via Ctrl+V o file picker; click = lightbox
+    │   └── Lightbox.jsx      # visor de imagen a pantalla completa via createPortal
     └── pages/
         ├── Login.jsx           # login con Google (unico metodo, sin registro)
         ├── Dashboard.jsx       # stats + lista de pedidos con buscador

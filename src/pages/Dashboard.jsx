@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPedidos, deletePedido, getDashboardStats } from '../api'
 import toast from 'react-hot-toast'
+import { usePrivacy } from '../context/PrivacyContext'
 
 function StatCard({ label, value, sub, color = 'text-gray-800 dark:text-gray-100' }) {
   return (
@@ -18,6 +19,9 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('todos')
+  const { privado } = usePrivacy()
+  const oculto = '••••'
   const navigate = useNavigate()
 
   const cargar = async () => {
@@ -56,17 +60,17 @@ export default function Dashboard() {
           <StatCard
             label="Clientes"
             value={stats.total_clientes}
-            sub={`${stats.clientes_con_deuda} con saldo pendiente`}
+            sub={privado ? `${oculto} con saldo pendiente` : `${stats.clientes_con_deuda} con saldo pendiente`}
           />
           <StatCard
             label="Por cobrar"
-            value={`$${stats.total_pendiente.toFixed(2)}`}
+            value={privado ? oculto : `$${stats.total_pendiente.toFixed(2)}`}
             color="text-red-500"
             sub="saldo pendiente total"
           />
           <StatCard
             label="Cobrado"
-            value={`$${stats.total_cobrado.toFixed(2)}`}
+            value={privado ? oculto : `$${stats.total_cobrado.toFixed(2)}`}
             color="text-green-500"
             sub="pagos registrados"
           />
@@ -84,27 +88,48 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <div className="relative mb-4">
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por cliente, numero o fecha (ej: 2025-05)..."
-            className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
-          />
-          {busqueda && (
-            <button
-              onClick={() => setBusqueda('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
-            >
-              &times;
-            </button>
-          )}
+        <div className="flex flex-col sm:flex-row gap-2 mb-4">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por cliente, numero o fecha (ej: 2025-05)..."
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
+            />
+            {busqueda && (
+              <button
+                onClick={() => setBusqueda('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+          <div className="flex gap-1 shrink-0">
+            {[
+              { key: 'todos', label: 'Todos' },
+              { key: 'pendientes', label: 'Pendientes' },
+              { key: 'completados', label: 'Completados' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setFiltroEstado(key)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filtroEstado === key
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {(() => {
           const q = busqueda.trim().toLowerCase()
-          const filtrados = q
+          let filtrados = q
             ? pedidos.filter((p) => {
                 const matchNumero = String(p.numero ?? p.id).includes(q)
                 const matchFecha = p.fecha.includes(q)
@@ -114,6 +139,12 @@ export default function Dashboard() {
                 return matchNumero || matchFecha || matchCliente
               })
             : pedidos
+
+          if (filtroEstado === 'pendientes') {
+            filtrados = filtrados.filter((p) => p.total_pendientes > 0)
+          } else if (filtroEstado === 'completados') {
+            filtrados = filtrados.filter((p) => p.total_clientes > 0 && p.total_pendientes === 0)
+          }
 
           if (pedidos.length === 0) {
             return <p className="text-center py-16 text-gray-400">No hay pedidos aun. Crea el primero.</p>

@@ -15,6 +15,8 @@ export default function Clientes() {
   const [editando, setEditando] = useState(null)
   const [form, setForm] = useState(formVacio)
   const [nuevoAlias, setNuevoAlias] = useState({})
+  const [busqueda, setBusqueda] = useState('')
+  const [orden, setOrden] = useState('az')
   const navigate = useNavigate()
 
   const cargar = async () => {
@@ -77,11 +79,56 @@ export default function Clientes() {
         </button>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-2 mb-6">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o alias..."
+            className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
+          />
+          {busqueda && (
+            <button
+              onClick={() => setBusqueda('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+            >
+              &times;
+            </button>
+          )}
+        </div>
+        <select
+          value={orden}
+          onChange={(e) => setOrden(e.target.value)}
+          className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="az">Nombre A-Z</option>
+          <option value="za">Nombre Z-A</option>
+          <option value="comision_asc">Menor comision</option>
+          <option value="comision_desc">Mayor comision</option>
+        </select>
+      </div>
+
       {clientes.length === 0 ? (
         <p className="text-center py-20 text-gray-400">No hay clientes aun.</p>
       ) : (
         <div className="space-y-4">
-          {clientes.map((c) => (
+          {clientes
+            .filter((c) => {
+              const q = busqueda.trim().toLowerCase()
+              if (!q) return true
+              const matchNombre = c.nombre.toLowerCase().includes(q)
+              const matchAlias = c.aliases.some((a) => a.alias.toLowerCase().includes(q))
+              return matchNombre || matchAlias
+            })
+            .sort((a, b) => {
+              if (orden === 'az') return a.nombre.localeCompare(b.nombre)
+              if (orden === 'za') return b.nombre.localeCompare(a.nombre)
+              if (orden === 'comision_asc') return Number(a.comision_por_item) - Number(b.comision_por_item)
+              if (orden === 'comision_desc') return Number(b.comision_por_item) - Number(a.comision_por_item)
+              return 0
+            })
+            .map((c) => (
             <div key={c.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
               <div className="flex items-start justify-between mb-3">
                 <div>

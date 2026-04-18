@@ -8,6 +8,7 @@ import {
   createItem, updateItem, deleteItem, uploadItemImagen,
   createPago, deletePago, uploadComprobante,
 } from '../api'
+import { usePrivacy } from '../context/PrivacyContext'
 
 const inputCls = 'w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500'
 const selectCls = 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -23,8 +24,14 @@ export default function PedidoDetalle() {
   const [panelItem, setPanelItem] = useState(null)
   const [panelPago, setPanelPago] = useState(null)
   const [clienteSeleccionado, setClienteSeleccionado] = useState('')
+  const [busquedaCombo, setBusquedaCombo] = useState('')
+  const [comboAbierto, setComboAbierto] = useState(false)
+  const { privado } = usePrivacy()
+  const oculto = '••••'
   const [formItem, setFormItem] = useState({ link: '', articulo: '', precio: '' })
   const [formPago, setFormPago] = useState({ monto: '', tipo: 'transferencia', notas: '' })
+  const [busquedaPedido, setBusquedaPedido] = useState('')
+  const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('todos')
 
   const cargar = async () => {
     try {
@@ -141,8 +148,55 @@ export default function PedidoDetalle() {
       {pedido.clientes.length === 0 ? (
         <p className="text-center py-20 text-gray-400">Agrega un cliente para comenzar.</p>
       ) : (
+        <>
+          <div className="flex flex-col sm:flex-row gap-2 mb-5">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={busquedaPedido}
+                onChange={(e) => setBusquedaPedido(e.target.value)}
+                placeholder="Buscar cliente en este pedido..."
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
+              />
+              {busquedaPedido && (
+                <button
+                  onClick={() => setBusquedaPedido('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+            <div className="flex gap-1 shrink-0">
+              {[
+                { key: 'todos', label: 'Todos' },
+                { key: 'pendientes', label: 'Con saldo' },
+                { key: 'pagados', label: 'Pagados' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setFiltroEstadoPedido(key)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filtroEstadoPedido === key
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         <div className="space-y-5">
-          {pedido.clientes.map((pc) => (
+          {pedido.clientes
+            .filter((pc) => {
+              const q = busquedaPedido.trim().toLowerCase()
+              if (q && !pc.cliente_nombre.toLowerCase().includes(q)) return false
+              if (filtroEstadoPedido === 'pendientes') return Number(pc.saldo) > 0
+              if (filtroEstadoPedido === 'pagados') return Number(pc.saldo) <= 0
+              return true
+            })
+            .map((pc) => (
             <div key={pc.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
               {/* Header cliente */}
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -202,7 +256,7 @@ export default function PedidoDetalle() {
                             {!item.articulo && !item.link && <span className="text-xs text-gray-400">Item #{item.numero}</span>}
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">${Number(item.precio).toFixed(2)}</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{privado ? oculto : `$${Number(item.precio).toFixed(2)}`}</span>
                             <button
                               onClick={() => toggleLlegado(pc, item)}
                               title={item.llegado ? 'Llego' : 'Marcar como llegado'}
@@ -228,23 +282,23 @@ export default function PedidoDetalle() {
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-1 text-sm">
                   <div className="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>Subtotal ({pc.items.filter((i) => i.llegado).length} llegados)</span>
-                    <span>${Number(pc.subtotal).toFixed(2)}</span>
+                    <span>{privado ? oculto : `$${Number(pc.subtotal).toFixed(2)}`}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>Comision</span>
-                    <span>${Number(pc.comision).toFixed(2)}</span>
+                    <span>{privado ? oculto : `$${Number(pc.comision).toFixed(2)}`}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-gray-800 dark:text-gray-100">
                     <span>Total</span>
-                    <span>${Number(pc.total).toFixed(2)}</span>
+                    <span>{privado ? oculto : `$${Number(pc.total).toFixed(2)}`}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>Pagado</span>
-                    <span className="text-green-500">-${Number(pc.total_pagado).toFixed(2)}</span>
+                    <span className="text-green-500">{privado ? oculto : `-$${Number(pc.total_pagado).toFixed(2)}`}</span>
                   </div>
                   <div className={`flex justify-between font-bold text-base pt-1 border-t border-gray-100 dark:border-gray-700 ${Number(pc.saldo) > 0 ? 'text-red-500' : 'text-green-500'}`}>
                     <span>Saldo pendiente</span>
-                    <span>${Number(pc.saldo).toFixed(2)}</span>
+                    <span>{privado ? oculto : `$${Number(pc.saldo).toFixed(2)}`}</span>
                   </div>
                 </div>
 
@@ -269,7 +323,7 @@ export default function PedidoDetalle() {
                           <ImageUpload imageUrl={pago.comprobante_url} onUpload={(file) => subirComprobante(pc, pago.id, file)} label="comp." />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-green-500">${Number(pago.monto).toFixed(2)}</span>
+                              <span className="text-sm font-medium text-green-500">{privado ? oculto : `$${Number(pago.monto).toFixed(2)}`}</span>
                               <span className="text-xs text-gray-400 capitalize">{pago.tipo}</span>
                             </div>
                             {pago.notas && <p className="text-xs text-gray-400">{pago.notas}</p>}
@@ -289,22 +343,57 @@ export default function PedidoDetalle() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {/* Panel: agregar cliente */}
-      <SidePanel open={panelCliente} onClose={() => setPanelCliente(false)} title="Agregar cliente al pedido">
+      <SidePanel open={panelCliente} onClose={() => { setPanelCliente(false); setBusquedaCombo(''); setComboAbierto(false); setClienteSeleccionado('') }} title="Agregar cliente al pedido">
         <div className="space-y-4">
           {clientesDisponibles.length === 0 ? (
             <p className="text-sm text-gray-400">Todos los clientes ya estan en este pedido.</p>
           ) : (
             <>
-              <select value={clienteSeleccionado} onChange={(e) => setClienteSeleccionado(e.target.value)} className={selectCls + ' w-full'}>
-                <option value="">Seleccionar cliente...</option>
-                {clientesDisponibles.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nombre}</option>
-                ))}
-              </select>
-              <button onClick={agregarCliente} disabled={!clienteSeleccionado} className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar cliente..."
+                  value={busquedaCombo}
+                  onChange={(e) => { setBusquedaCombo(e.target.value); setComboAbierto(true); setClienteSeleccionado('') }}
+                  onFocus={() => setComboAbierto(true)}
+                  className={inputCls}
+                />
+                {clienteSeleccionado && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-xs font-medium">seleccionado</span>
+                )}
+                {comboAbierto && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {clientesDisponibles
+                      .filter((c) => c.nombre.toLowerCase().includes(busquedaCombo.toLowerCase()))
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setClienteSeleccionado(String(c.id))
+                            setBusquedaCombo(c.nombre)
+                            setComboAbierto(false)
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          {c.nombre}
+                        </button>
+                      ))}
+                    {clientesDisponibles.filter((c) => c.nombre.toLowerCase().includes(busquedaCombo.toLowerCase())).length === 0 && (
+                      <p className="px-4 py-2 text-sm text-gray-400">Sin resultados</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => { agregarCliente(); setBusquedaCombo(''); setComboAbierto(false) }}
+                disabled={!clienteSeleccionado}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+              >
                 Agregar
               </button>
             </>
