@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import Lightbox from './Lightbox'
 
 export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
@@ -11,22 +11,17 @@ export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
     onUpload(file)
   }
 
-  useEffect(() => {
-    if (!activo) return
-    const handler = (e) => {
-      const items = e.clipboardData?.items
-      if (!items) return
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          e.preventDefault()
-          procesar(item.getAsFile())
-          break
-        }
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        procesar(item.getAsFile())
+        break
       }
     }
-    document.addEventListener('paste', handler)
-    return () => document.removeEventListener('paste', handler)
-  }, [activo])
+  }
 
   if (imageUrl) {
     return (
@@ -68,6 +63,7 @@ export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
       tabIndex={0}
       onFocus={() => setActivo(true)}
       onBlur={() => setActivo(false)}
+      onPaste={handlePaste}
       className={`w-12 h-12 flex-shrink-0 flex flex-col items-center justify-center border-2 border-dashed rounded-lg transition-colors outline-none select-none cursor-pointer
         ${activo
           ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'

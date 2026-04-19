@@ -94,6 +94,11 @@ npm run dev
 ## Patrones UI
 - SidePanel para: agregar cliente, agregar item, registrar pago, crear/editar cliente
 - Dashboard: StatCards arriba + buscador (filtra por cliente, numero o fecha) + lista de pedidos
-- PedidoDetalle: boton "Ver factura" abre /factura/:pcId; "Copiar enlace" copia /p/:token al portapapeles
+- PedidoDetalle: boton "Ver factura" abre /factura/:pcId; "Copiar enlace" copia /p/:token al portapapeles; "Exportar Excel" descarga el .xlsx del pedido completo
 - ClienteDetalle: ResumenCards + historial con barra de progreso de pago
 - Los registros eliminados no aparecen en la UI (el backend los filtra); el borrado es siempre logico
+
+## Export Excel
+- Boton "Exportar Excel" en cabecera de PedidoDetalle (verde, junto a "+ Agregar cliente")
+- Llama a `exportPedidoExcel(id)` con `responseType: 'blob'`, crea un object URL y dispara descarga
+- Nombre del archivo: `Pedido_{numero}_{fecha}.xlsx`
