@@ -66,6 +66,10 @@ export const uploadComprobante = (pcId, pagoId, file) => {
   return api.post(`/pedido-clientes/${pcId}/pagos/${pagoId}/comprobante`, form)
 }
 
+// ── Export ────────────────────────────────────────────
+export const exportPedidoExcel = (id) =>
+  api.get(`/pedidos/${id}/export`, { responseType: 'blob' })
+
 // ── Stats ─────────────────────────────────────────────
 export const getDashboardStats = () => api.get('/stats/dashboard')
 export const getHistorialCliente = (id) => api.get(`/stats/clientes/${id}`)

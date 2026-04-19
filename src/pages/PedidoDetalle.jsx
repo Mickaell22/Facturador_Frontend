@@ -8,6 +8,7 @@ import {
   updateComisionPedidoCliente,
   createItem, updateItem, deleteItem, uploadItemImagen,
   createPago, deletePago, uploadComprobante,
+  exportPedidoExcel,
 } from '../api'
 
 const inputCls = 'w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500'
@@ -35,6 +36,20 @@ export default function PedidoDetalle() {
   const [formPago, setFormPago] = useState({ monto: '', tipo: 'transferencia', notas: '' })
   const [busquedaPedido, setBusquedaPedido] = useState('')
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('todos')
+
+  const handleExport = async () => {
+    try {
+      const res = await exportPedidoExcel(id)
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Pedido_${pedido?.numero || id}_${pedido?.fecha || ''}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Error al exportar Excel')
+    }
+  }
 
   const cargar = async () => {
     try {
@@ -186,6 +201,9 @@ export default function PedidoDetalle() {
             className="border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             {pedido.clientes.every((pc) => colapsados.has(pc.id)) ? 'Expandir todo' : 'Contraer todo'}
+          </button>
+          <button onClick={handleExport} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700">
+            Exportar Excel
           </button>
           <button onClick={() => setPanelCliente(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
             + Agregar cliente

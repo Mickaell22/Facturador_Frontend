@@ -73,6 +73,11 @@ echo "VITE_API_URL=http://localhost:8000" > .env.local
 npm run dev
 ```
 
+## Deploy en Railway (serverless)
+- Frontend es una SPA estatica servida desde Railway
+- `VITE_API_URL` apunta al backend en produccion: `https://facturadorbackend-production.up.railway.app`
+- En modo serverless el frontend siempre esta disponible; los cold starts afectan solo al backend
+
 ## Convenciones
 - Sin emojis en codigo fuente
 - Sin valores hardcodeados
@@ -84,6 +89,7 @@ npm run dev
 - Valores monetarios con .toFixed(2)
 - ImageUpload: click = enfoca para Ctrl+V, con imagen = hover muestra "cambiar"
 - FacturaPublica y Login tienen fondo blanco fijo (no dependen del Layout)
+- La comision mostrada por pedido-cliente es la historica (guardada al momento de agregar al pedido), no la comision actual del cliente
 
 ## Patrones UI
 - SidePanel para: agregar cliente, agregar item, registrar pago, crear/editar cliente
