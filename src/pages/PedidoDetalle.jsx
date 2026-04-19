@@ -6,7 +6,7 @@ import ImageUpload from '../components/ImageUpload'
 import {
   getPedido, getClientes, addClienteToPedido, removeClienteFromPedido,
   updateComisionPedidoCliente,
-  createItem, updateItem, deleteItem, uploadItemImagen,
+  createItem, updateItem, deleteItem, uploadItemImagen, deleteItemImagen,
   createPago, deletePago, uploadComprobante,
   exportPedidoExcel,
 } from '../api'
@@ -137,6 +137,11 @@ export default function PedidoDetalle() {
   const subirImagenItem = async (pc, itemId, file) => {
     try { await uploadItemImagen(pc.id, itemId, file); toast.success('Imagen subida'); cargar() }
     catch { toast.error('Error al subir imagen') }
+  }
+
+  const eliminarImagenItem = async (pc, itemId) => {
+    try { await deleteItemImagen(pc.id, itemId); cargar() }
+    catch { toast.error('Error al eliminar imagen') }
   }
 
   const registrarPago = async (e, pc) => {
@@ -363,7 +368,11 @@ export default function PedidoDetalle() {
                     <div className="space-y-2">
                       {pc.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-3 py-1">
-                          <ImageUpload imageUrl={item.imagen_url} onUpload={(file) => subirImagenItem(pc, item.id, file)} />
+                          <ImageUpload
+                            imageUrl={item.imagen_url}
+                            onUpload={(file) => subirImagenItem(pc, item.id, file)}
+                            onDelete={item.imagen_url ? () => eliminarImagenItem(pc, item.id) : undefined}
+                          />
                           <div className="flex-1 min-w-0">
                             {item.articulo && <p className="text-sm text-gray-700 dark:text-gray-200 truncate">{item.articulo}</p>}
                             {item.link && (

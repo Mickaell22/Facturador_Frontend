@@ -50,6 +50,9 @@ export const getItems = (pcId) => api.get(`/pedido-clientes/${pcId}/items`)
 export const createItem = (pcId, data) => api.post(`/pedido-clientes/${pcId}/items`, data)
 export const updateItem = (pcId, itemId, data) => api.put(`/pedido-clientes/${pcId}/items/${itemId}`, data)
 export const deleteItem = (pcId, itemId) => api.delete(`/pedido-clientes/${pcId}/items/${itemId}`)
+export const deleteItemImagen = (pcId, itemId) =>
+  api.delete(`/pedido-clientes/${pcId}/items/${itemId}/imagen`)
+
 export const uploadItemImagen = (pcId, itemId, file) => {
   const form = new FormData()
   form.append('file', file)

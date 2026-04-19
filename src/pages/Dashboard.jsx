@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getPedidos, deletePedido, getDashboardStats } from '../api'
+import { getPedidos, deletePedido, getDashboardStats, updatePedido } from '../api'
 import toast from 'react-hot-toast'
 import { usePrivacy } from '../context/PrivacyContext'
+import SidePanel from '../components/SidePanel'
 
 function StatCard({ label, value, sub, color = 'text-gray-800 dark:text-gray-100' }) {
   return (
@@ -20,6 +21,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
+  const [panelEditar, setPanelEditar] = useState(null)
+  const [formEditar, setFormEditar] = useState({ numero: '', fecha: '', notas: '' })
   const { privado, revelar } = usePrivacy()
   const oculto = '••••'
   const navigate = useNavigate()
@@ -37,6 +40,28 @@ export default function Dashboard() {
   }
 
   useEffect(() => { cargar() }, [])
+
+  const abrirEditar = (p, e) => {
+    e.stopPropagation()
+    setFormEditar({ numero: p.numero ?? '', fecha: p.fecha, notas: p.notas ?? '' })
+    setPanelEditar(p)
+  }
+
+  const handleSaveEditar = async (e) => {
+    e.preventDefault()
+    try {
+      await updatePedido(panelEditar.id, {
+        numero: formEditar.numero !== '' ? Number(formEditar.numero) : null,
+        fecha: formEditar.fecha,
+        notas: formEditar.notas || null,
+      })
+      toast.success('Pedido actualizado')
+      setPanelEditar(null)
+      cargar()
+    } catch {
+      toast.error('Error al guardar')
+    }
+  }
 
   const handleDelete = async (id, e) => {
     e.stopPropagation()
@@ -192,12 +217,20 @@ export default function Dashboard() {
                       <span className="text-xs text-green-500 font-medium">Todo pagado</span>
                     ) : null}
                   </div>
-                  <button
-                    onClick={(e) => handleDelete(p.id, e)}
-                    className="text-gray-300 dark:text-gray-600 hover:text-red-400 text-sm px-2 py-1 rounded"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={(e) => abrirEditar(p, e)}
+                      className="text-gray-300 dark:text-gray-600 hover:text-blue-400 text-sm px-2 py-1 rounded"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(p.id, e)}
+                      className="text-gray-300 dark:text-gray-600 hover:text-red-400 text-sm px-2 py-1 rounded"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
                 <div className="flex gap-4 mt-2 text-sm">
                   <span className="text-gray-400">
@@ -221,6 +254,43 @@ export default function Dashboard() {
           )
         })()}
       </div>
+
+      <SidePanel isOpen={!!panelEditar} onClose={() => setPanelEditar(null)} title="Editar pedido">
+        <form onSubmit={handleSaveEditar} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Numero</label>
+            <input
+              type="number"
+              value={formEditar.numero}
+              onChange={(e) => setFormEditar({ ...formEditar, numero: e.target.value })}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+            <input
+              type="date"
+              required
+              value={formEditar.fecha}
+              onChange={(e) => setFormEditar({ ...formEditar, fecha: e.target.value })}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
+            <input
+              type="text"
+              placeholder="Opcional"
+              value={formEditar.notas}
+              onChange={(e) => setFormEditar({ ...formEditar, notas: e.target.value })}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+            Guardar
+          </button>
+        </form>
+      </SidePanel>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import Lightbox from './Lightbox'
 
-export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
+export default function ImageUpload({ imageUrl, onUpload, onDelete, label = 'foto' }) {
   const inputRef = useRef(null)
   const [activo, setActivo] = useState(false)
   const [lightbox, setLightbox] = useState(false)
@@ -43,6 +43,18 @@ export default function ImageUpload({ imageUrl, onUpload, label = 'foto' }) {
           >
             cambiar
           </button>
+
+          {/* Boton "x" para eliminar imagen */}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none"
+              title="Eliminar imagen"
+            >
+              &times;
+            </button>
+          )}
 
           <input
             ref={inputRef}
