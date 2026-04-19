@@ -255,7 +255,7 @@ export default function Dashboard() {
         })()}
       </div>
 
-      <SidePanel isOpen={!!panelEditar} onClose={() => setPanelEditar(null)} title="Editar pedido">
+      <SidePanel open={!!panelEditar} onClose={() => setPanelEditar(null)} title="Editar pedido">
         <form onSubmit={handleSaveEditar} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Numero</label>
