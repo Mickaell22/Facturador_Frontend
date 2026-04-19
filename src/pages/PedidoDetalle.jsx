@@ -176,9 +176,21 @@ export default function PedidoDetalle() {
             Pedido #{pedido.numero ?? pedido.id} — {fechaFormateada}
           </h1>
         </div>
-        <button onClick={() => setPanelCliente(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-          + Agregar cliente
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              const todos = pedido.clientes.map((pc) => pc.id)
+              const todosColapsados = todos.every((id) => colapsados.has(id))
+              setColapsados(todosColapsados ? new Set() : new Set(todos))
+            }}
+            className="border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            {pedido.clientes.every((pc) => colapsados.has(pc.id)) ? 'Expandir todo' : 'Contraer todo'}
+          </button>
+          <button onClick={() => setPanelCliente(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+            + Agregar cliente
+          </button>
+        </div>
       </div>
 
       {pedido.clientes.length > 0 && (
