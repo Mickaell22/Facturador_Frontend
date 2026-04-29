@@ -1,27 +1,36 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import Lightbox from './Lightbox'
 
 export default function ImageUpload({ imageUrl, onUpload, onDelete, label = 'foto' }) {
   const inputRef = useRef(null)
   const [activo, setActivo] = useState(false)
   const [lightbox, setLightbox] = useState(false)
+  const onUploadRef = useRef(onUpload)
+  useEffect(() => { onUploadRef.current = onUpload })
 
   const procesar = (file) => {
     if (!file || !file.type.startsWith('image/')) return
-    onUpload(file)
+    onUploadRef.current(file)
   }
 
-  const handlePaste = (e) => {
-    const items = e.clipboardData?.items
-    if (!items) return
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault()
-        procesar(item.getAsFile())
-        break
+  // Listener a nivel document para Firefox en Linux (no expone clipboardData.items
+  // en elementos no editables via el evento onPaste del elemento)
+  useEffect(() => {
+    if (!activo) return
+    const handler = (e) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          procesar(item.getAsFile())
+          break
+        }
       }
     }
-  }
+    document.addEventListener('paste', handler)
+    return () => document.removeEventListener('paste', handler)
+  }, [activo])
 
   if (imageUrl) {
     return (
@@ -75,7 +84,6 @@ export default function ImageUpload({ imageUrl, onUpload, onDelete, label = 'fot
       tabIndex={0}
       onFocus={() => setActivo(true)}
       onBlur={() => setActivo(false)}
-      onPaste={handlePaste}
       className={`w-12 h-12 flex-shrink-0 flex flex-col items-center justify-center border-2 border-dashed rounded-lg transition-colors outline-none select-none cursor-pointer
         ${activo
           ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
