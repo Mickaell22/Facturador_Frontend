@@ -43,7 +43,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 w-full max-w-sm text-center shadow-sm">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-1">
-          Facturador Temu
+          Facturador
         </h1>
         <p className="text-sm text-gray-400 mb-8">Inicia sesion para continuar</p>
 

@@ -95,7 +95,7 @@ export default function Factura() {
                       {item.articulo || `Articulo #${item.numero}`}
                     </p>
                     {item.link && (
-                      <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate block">ver en Temu</a>
+                      <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate block">ver enlace</a>
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">

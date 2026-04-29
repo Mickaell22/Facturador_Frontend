@@ -97,7 +97,7 @@ export default function FacturaPublica() {
                     </p>
                     {item.link && (
                       <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate block">
-                        ver en Temu
+                        ver enlace
                       </a>
                     )}
                   </div>

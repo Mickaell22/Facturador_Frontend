@@ -79,3 +79,4 @@ export const getHistorialCliente = (id) => api.get(`/stats/clientes/${id}`)
 
 // ── Publico (sin auth) ────────────────────────────────
 export const getFacturaPublica = (token) => api.get(`/public/factura/${token}`)
+export const getHistorialClientePublico = (token) => api.get(`/public/cliente/${token}`)

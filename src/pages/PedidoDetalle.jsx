@@ -377,7 +377,7 @@ export default function PedidoDetalle() {
                             {item.articulo && <p className="text-sm text-gray-700 dark:text-gray-200 truncate">{item.articulo}</p>}
                             {item.link && (
                               <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate block">
-                                ver en Temu
+                                ver enlace
                               </a>
                             )}
                             {!item.articulo && !item.link && <span className="text-xs text-gray-400">Item #{item.numero}</span>}
@@ -540,8 +540,8 @@ export default function PedidoDetalle() {
         {panelItem && (
           <form onSubmit={(e) => agregarItem(e, panelItem)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link de Temu</label>
-              <input type="text" placeholder="https://share.temu.com/..." value={formItem.link} onChange={(e) => setFormItem({ ...formItem, link: e.target.value })} className={inputCls} />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link del articulo</label>
+              <input type="text" placeholder="https://..." value={formItem.link} onChange={(e) => setFormItem({ ...formItem, link: e.target.value })} className={inputCls} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del articulo</label>
@@ -594,8 +594,8 @@ export default function PedidoDetalle() {
         {panelEditItem && (
           <form onSubmit={(e) => guardarEditItem(e, panelEditItem._pc)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link de Temu</label>
-              <input type="text" placeholder="https://share.temu.com/..." value={formEditItem.link} onChange={(e) => setFormEditItem({ ...formEditItem, link: e.target.value })} className={inputCls} />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link del articulo</label>
+              <input type="text" placeholder="https://..." value={formEditItem.link} onChange={(e) => setFormEditItem({ ...formEditItem, link: e.target.value })} className={inputCls} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del articulo</label>

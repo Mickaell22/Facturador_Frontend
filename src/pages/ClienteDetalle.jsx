@@ -18,6 +18,11 @@ export default function ClienteDetalle() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const copiarEnlace = () => {
+    const url = `${window.location.origin}/c/${data.cliente.token_publico}`
+    navigator.clipboard.writeText(url).then(() => toast.success('Enlace copiado'))
+  }
+
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -46,6 +51,12 @@ export default function ClienteDetalle() {
         <span className="text-gray-300 dark:text-gray-600">/</span>
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">{cliente.nombre}</h1>
         <span className="text-sm text-gray-400">comision ${Number(cliente.comision_por_item).toFixed(2)}/item</span>
+        <button
+          onClick={copiarEnlace}
+          className="ml-auto text-sm text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-1"
+        >
+          Copiar enlace publico
+        </button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

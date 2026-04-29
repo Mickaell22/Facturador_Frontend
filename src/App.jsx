@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Factura from './pages/Factura'
 import FacturaPublica from './pages/FacturaPublica'
+import ClientePublico from './pages/ClientePublico'
 import Clientes from './pages/Clientes'
 import ClienteDetalle from './pages/ClienteDetalle'
 import Login from './pages/Login'
@@ -44,8 +45,9 @@ export default function App() {
         }
       />
 
-      {/* Ruta publica — sin login */}
+      {/* Rutas publicas — sin login */}
       <Route path="/p/:token" element={<FacturaPublica />} />
+      <Route path="/c/:token" element={<ClientePublico />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
