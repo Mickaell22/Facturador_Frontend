@@ -8,6 +8,13 @@ export default function ImageUpload({ imageUrl, onUpload, onDelete, label = 'fot
   const onUploadRef = useRef(onUpload)
   useEffect(() => { onUploadRef.current = onUpload })
 
+  // Cuando llega imageUrl el div con tabIndex deja de renderizarse sin disparar
+  // onBlur, por lo que activo quedaría true y el handler de paste filtrado nunca
+  // se limpiaría, afectando pástes de otros componentes en la misma página.
+  useEffect(() => {
+    if (imageUrl) setActivo(false)
+  }, [imageUrl])
+
   const procesar = (file) => {
     if (!file || !file.type.startsWith('image/')) return
     onUploadRef.current(file)
