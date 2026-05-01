@@ -346,11 +346,29 @@ export default function PedidoDetalle() {
                     <button
                       onClick={() => {
                         const url = `${window.location.origin}/p/${pc.token_publico}`
-                        navigator.clipboard.writeText(url).then(() => toast.success('Enlace copiado'))
+                        const itemsTexto = pc.items
+                          .map((i) => `• ${i.articulo || `Item #${i.numero}`}: $${Number(i.precio).toFixed(2)}`)
+                          .join('\n')
+                        const mensaje = [
+                          `*${pc.cliente_nombre}* — Pedido #${pedido.numero ?? pedido.id}`,
+                          '',
+                          itemsTexto || '(sin artículos)',
+                          '',
+                          `Subtotal: $${Number(pc.subtotal).toFixed(2)}`,
+                          `Comisión: $${Number(pc.comision).toFixed(2)}`,
+                          `*Total: $${Number(pc.total).toFixed(2)}*`,
+                          Number(pc.total_pagado) > 0 ? `Pagado: -$${Number(pc.total_pagado).toFixed(2)}` : null,
+                          `*Saldo: $${Number(pc.saldo).toFixed(2)}*`,
+                          '',
+                          'Ten en cuenta que al momento de hacer la compra los precios pueden subir o bajar.',
+                          '',
+                          url,
+                        ].filter((l) => l !== null).join('\n')
+                        navigator.clipboard.writeText(mensaje).then(() => toast.success('Mensaje copiado'))
                       }}
                       className="text-sm text-gray-400 dark:text-gray-500 hover:underline"
                     >
-                      Copiar enlace
+                      Copiar mensaje
                     </button>
                   )}
                   <button onClick={() => quitarCliente(pc.cliente_id)} className="text-sm text-red-400 hover:underline">Quitar</button>
