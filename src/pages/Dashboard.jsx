@@ -93,7 +93,7 @@ export default function Dashboard() {
             {privado ? 'Mostrar cifras' : 'Ocultar'}
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <StatCard label="Total pedidos" value={stats.total_pedidos} />
           <StatCard
             label="Clientes"
@@ -111,6 +111,16 @@ export default function Dashboard() {
             value={privado ? oculto : `$${stats.total_cobrado.toFixed(2)}`}
             color="text-green-500"
             sub="pagos registrados"
+          />
+          <StatCard
+            label="Total items"
+            value={stats.total_items ?? 0}
+          />
+          <StatCard
+            label="Total general"
+            value={privado ? oculto : `$${(stats.total_general ?? 0).toFixed(2)}`}
+            color="text-blue-500"
+            sub="subtotal + comisiones"
           />
         </div>
         </div>

@@ -180,8 +180,10 @@ export default function PedidoDetalle() {
     (acc, pc) => ({
       porCobrar: acc.porCobrar + Math.max(0, Number(pc.saldo)),
       cobrado: acc.cobrado + Number(pc.total_pagado),
+      comision: acc.comision + Number(pc.comision),
+      totalItems: acc.totalItems + pc.items.length,
     }),
-    { porCobrar: 0, cobrado: 0 }
+    { porCobrar: 0, cobrado: 0, comision: 0, totalItems: 0 }
   )
 
   return (
@@ -217,7 +219,7 @@ export default function PedidoDetalle() {
       </div>
 
       {pedido.clientes.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Clientes</p>
             <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{pedido.clientes.length}</p>
@@ -229,6 +231,14 @@ export default function PedidoDetalle() {
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Cobrado</p>
             <p className="text-xl font-bold text-green-500">${resumenPedido.cobrado.toFixed(2)}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Comision</p>
+            <p className="text-xl font-bold text-orange-500">${resumenPedido.comision.toFixed(2)}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Total items</p>
+            <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{resumenPedido.totalItems}</p>
           </div>
         </div>
       )}
@@ -288,32 +298,41 @@ export default function PedidoDetalle() {
             <div key={pc.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
               {/* Header cliente */}
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-800 dark:text-gray-100">{pc.cliente_nombre}</span>
-                  {editandoComision === pc.cliente_id ? (
-                    <form onSubmit={(e) => { e.preventDefault(); guardarComision(pc.cliente_id) }} className="flex items-center gap-1">
-                      <span className="text-xs text-gray-400">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={comisionInput}
-                        onChange={(e) => setComisionInput(e.target.value)}
-                        autoFocus
-                        className="w-16 border border-blue-400 rounded px-1 py-0.5 text-xs text-gray-800 dark:text-gray-100 dark:bg-gray-700 focus:outline-none"
-                      />
-                      <span className="text-xs text-gray-400">/item</span>
-                      <button type="submit" className="text-xs text-blue-500 hover:underline">OK</button>
-                      <button type="button" onClick={() => setEditandoComision(null)} className="text-xs text-gray-400 hover:underline">Cancelar</button>
-                    </form>
-                  ) : (
-                    <button
-                      onClick={() => { setEditandoComision(pc.cliente_id); setComisionInput(String(Number(pc.cliente_comision))) }}
-                      className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
-                      title="Editar comision de este pedido"
-                    >
-                      comision ${Number(pc.cliente_comision).toFixed(2)}/item
-                    </button>
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">{pc.cliente_nombre}</span>
+                    {editandoComision === pc.cliente_id ? (
+                      <form onSubmit={(e) => { e.preventDefault(); guardarComision(pc.cliente_id) }} className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={comisionInput}
+                          onChange={(e) => setComisionInput(e.target.value)}
+                          autoFocus
+                          className="w-16 border border-blue-400 rounded px-1 py-0.5 text-xs text-gray-800 dark:text-gray-100 dark:bg-gray-700 focus:outline-none"
+                        />
+                        <span className="text-xs text-gray-400">/item</span>
+                        <button type="submit" className="text-xs text-blue-500 hover:underline">OK</button>
+                        <button type="button" onClick={() => setEditandoComision(null)} className="text-xs text-gray-400 hover:underline">Cancelar</button>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => { setEditandoComision(pc.cliente_id); setComisionInput(String(Number(pc.cliente_comision))) }}
+                        className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
+                        title="Editar comision de este pedido"
+                      >
+                        comision ${Number(pc.cliente_comision).toFixed(2)}/item
+                      </button>
+                    )}
+                  </div>
+                  {colapsados.has(pc.id) && (
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                      <span>{pc.items.length} item{pc.items.length !== 1 ? 's' : ''}</span>
+                      <span>comision ${Number(pc.comision).toFixed(2)}</span>
+                      <span className="font-medium text-gray-600 dark:text-gray-300">total ${Number(pc.total).toFixed(2)}</span>
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-4">
