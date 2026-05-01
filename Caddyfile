@@ -1,0 +1,15 @@
+{
+	auto_https off
+}
+
+:80 {
+	# Proxy /p/* al backend para que WhatsApp/Telegram lean los OG tags dinamicos
+	handle /p/* {
+		reverse_proxy http://{env.BACKEND_PRIVATE_HOST}
+	}
+
+	# Servir la SPA de React para todo lo demas
+	root * /app/dist
+	try_files {path} /index.html
+	file_server
+}
