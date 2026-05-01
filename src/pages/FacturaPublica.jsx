@@ -12,6 +12,7 @@ export default function FacturaPublica() {
   const [loading, setLoading] = useState(true)
   const [noValido, setNoValido] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState(null)
+  const [iniciandoServidor, setIniciandoServidor] = useState(false)
 
   useEffect(() => {
     const cargar = async () => {
@@ -28,6 +29,26 @@ export default function FacturaPublica() {
     cargar()
   }, [token])
 
+  // Muestra mensaje de "iniciando servidor" a los 3 segundos
+  useEffect(() => {
+    if (!loading) return
+    const t = setTimeout(() => setIniciandoServidor(true), 3000)
+    return () => clearTimeout(t)
+  }, [loading])
+
+  // Auto-recarga una vez si el servidor no responde en 7 segundos (cold start Railway)
+  useEffect(() => {
+    if (!loading) return
+    const key = `cold_reload_${token}`
+    const t = setTimeout(() => {
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1')
+        window.location.reload()
+      }
+    }, 7000)
+    return () => clearTimeout(t)
+  }, [loading, token])
+
   const handleImprimir = () => window.print()
 
   const handleCopiarImagen = async () => {
@@ -43,7 +64,14 @@ export default function FacturaPublica() {
     }
   }
 
-  if (loading) return <p className="text-center py-10 text-gray-400">Cargando...</p>
+  if (loading) return (
+    <div className="text-center py-10 space-y-1">
+      <p className="text-gray-400">Cargando...</p>
+      {iniciandoServidor && (
+        <p className="text-gray-300 text-xs">Iniciando servidor, por favor espera un momento...</p>
+      )}
+    </div>
+  )
   if (noValido) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <p className="text-gray-500">Este enlace no es valido o ya no existe.</p>
