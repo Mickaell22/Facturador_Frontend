@@ -65,10 +65,20 @@ export default function FacturaPublica() {
   }
 
   if (loading) return (
-    <div className="text-center py-10 space-y-1">
-      <p className="text-gray-400">Cargando...</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 gap-4 px-6">
+      <p className="text-gray-500 text-base">Cargando...</p>
       {iniciandoServidor && (
-        <p className="text-gray-300 text-xs">Iniciando servidor, por favor espera un momento...</p>
+        <>
+          <p className="text-gray-400 text-sm text-center max-w-xs">
+            El servidor esta iniciando, esto puede tardar unos segundos.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-white border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50 active:bg-gray-100"
+          >
+            Si no carga, toca aqui para actualizar
+          </button>
+        </>
       )}
     </div>
   )

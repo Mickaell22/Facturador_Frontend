@@ -346,7 +346,7 @@ export default function PedidoDetalle() {
                     <button
                       onClick={() => {
                         const api = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-                        const url = `${api}/public/p/${pc.token_publico}`
+                        const url = `${api}/p/${pc.token_publico}`
                         navigator.clipboard.writeText(url).then(() => toast.success('Enlace copiado'))
                       }}
                       className="text-sm text-gray-400 dark:text-gray-500 hover:underline"
