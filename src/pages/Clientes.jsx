@@ -4,8 +4,17 @@ import toast from 'react-hot-toast'
 import SidePanel from '../components/SidePanel'
 import { getClientes, createCliente, updateCliente, deleteCliente, addAlias, deleteAlias } from '../api'
 
-const inputCls = 'w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500'
+const AVATAR_LIGHT = ['#D4B896', '#A8B89F', '#C4A98E', '#9DA8B5', '#B89C9C']
+const AVATAR_DARK  = ['#8B6E48', '#6B7C5E', '#8B6F52', '#5E6E80', '#80605F']
+const avatarBg = (idx) => {
+  const dark = document.documentElement.classList.contains('dark')
+  return (dark ? AVATAR_DARK : AVATAR_LIGHT)[idx % 5]
+}
+function initials(name) {
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+}
 
+const COL = '40px 1fr 100px 80px 72px'
 const formVacio = { nombre: '', comision_por_item: '0.50' }
 
 export default function Clientes() {
@@ -16,6 +25,7 @@ export default function Clientes() {
   const [form, setForm] = useState(formVacio)
   const [nuevoAlias, setNuevoAlias] = useState({})
   const [busqueda, setBusqueda] = useState('')
+  const [filtroSaldo, setFiltroSaldo] = useState('todos')
   const [orden, setOrden] = useState('az')
   const navigate = useNavigate()
 
@@ -32,7 +42,7 @@ export default function Clientes() {
 
   useEffect(() => { cargar() }, [])
 
-  const abrirNuevo = () => { setEditando(null); setForm(formVacio); setPanelAbierto(true) }
+  const abrirNuevo  = () => { setEditando(null); setForm(formVacio); setPanelAbierto(true) }
   const abrirEditar = (c) => { setEditando(c); setForm({ nombre: c.nombre, comision_por_item: String(c.comision_por_item) }); setPanelAbierto(true) }
   const cerrarPanel = () => { setPanelAbierto(false); setEditando(null); setForm(formVacio) }
 
@@ -51,7 +61,7 @@ export default function Clientes() {
   }
 
   const handleEliminar = async (id) => {
-    if (!confirm('Eliminar cliente? Solo es posible si no tiene pedidos asociados.')) return
+    if (!confirm('¿Eliminar cliente? Solo es posible si no tiene pedidos asociados.')) return
     try { await deleteCliente(id); toast.success('Cliente eliminado'); cargar() }
     catch (err) { toast.error(err.response?.data?.detail || 'Error al eliminar') }
   }
@@ -68,104 +78,134 @@ export default function Clientes() {
     catch { toast.error('Error al eliminar alias') }
   }
 
-  if (loading) return <p className="text-center py-10 text-gray-400">Cargando...</p>
+  if (loading) return <p className="text-center py-16 text-ldg-muted text-sm">Cargando...</p>
+
+  const q = busqueda.trim().toLowerCase()
+  const filtrados = clientes
+    .filter((c) => {
+      if (q) {
+        const matchNombre = c.nombre.toLowerCase().includes(q)
+        const matchAlias  = c.aliases.some((a) => a.alias.toLowerCase().includes(q))
+        if (!matchNombre && !matchAlias) return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (orden === 'az') return a.nombre.localeCompare(b.nombre)
+      if (orden === 'za') return b.nombre.localeCompare(a.nombre)
+      if (orden === 'comision_asc')  return Number(a.comision_por_item) - Number(b.comision_por_item)
+      if (orden === 'comision_desc') return Number(b.comision_por_item) - Number(a.comision_por_item)
+      return 0
+    })
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Clientes</h1>
-        <button onClick={abrirNuevo} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-          + Nuevo cliente
-        </button>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-2 mb-6">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o alias..."
-            className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
-          />
-          {busqueda && (
-            <button
-              onClick={() => setBusqueda('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
-            >
-              &times;
-            </button>
-          )}
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-3.5">
+        <div>
+          <h1 className="text-lg font-bold text-ldg-ink tracking-tight">Clientes</h1>
+          <p className="text-xs text-ldg-muted mt-0.5">{clientes.length} clientes · ordenados {orden === 'az' ? 'A→Z' : orden === 'za' ? 'Z→A' : 'por comisión'}</p>
         </div>
-        <select
-          value={orden}
-          onChange={(e) => setOrden(e.target.value)}
-          className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="az">Nombre A-Z</option>
-          <option value="za">Nombre Z-A</option>
-          <option value="comision_asc">Menor comision</option>
-          <option value="comision_desc">Mayor comision</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-ldg-surface border border-ldg-line rounded px-2.5 py-1.5 w-64">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ldg-muted flex-shrink-0">
+              <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="nombre o alias…"
+              className="flex-1 bg-transparent text-sm text-ldg-ink placeholder:text-ldg-muted-soft focus:outline-none"
+            />
+            {busqueda && (
+              <button onClick={() => setBusqueda('')} className="text-ldg-muted hover:text-ldg-ink text-base leading-none">&times;</button>
+            )}
+          </div>
+          <select
+            value={orden}
+            onChange={(e) => setOrden(e.target.value)}
+            className="ldg-select text-xs"
+          >
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
+            <option value="comision_asc">Menor comisión</option>
+            <option value="comision_desc">Mayor comisión</option>
+          </select>
+          <button onClick={abrirNuevo} className="ldg-btn-primary">+ Nuevo cliente</button>
+        </div>
       </div>
 
       {clientes.length === 0 ? (
-        <p className="text-center py-20 text-gray-400">No hay clientes aun.</p>
+        <p className="text-center py-20 text-ldg-muted text-sm">No hay clientes aún.</p>
       ) : (
-        <div className="space-y-4">
-          {clientes
-            .filter((c) => {
-              const q = busqueda.trim().toLowerCase()
-              if (!q) return true
-              const matchNombre = c.nombre.toLowerCase().includes(q)
-              const matchAlias = c.aliases.some((a) => a.alias.toLowerCase().includes(q))
-              return matchNombre || matchAlias
-            })
-            .sort((a, b) => {
-              if (orden === 'az') return a.nombre.localeCompare(b.nombre)
-              if (orden === 'za') return b.nombre.localeCompare(a.nombre)
-              if (orden === 'comision_asc') return Number(a.comision_por_item) - Number(b.comision_por_item)
-              if (orden === 'comision_desc') return Number(b.comision_por_item) - Number(a.comision_por_item)
-              return 0
-            })
-            .map((c) => (
-            <div key={c.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{c.nombre}</p>
-                  <p className="text-sm text-gray-400 mt-0.5">Comision: ${Number(c.comision_por_item).toFixed(2)}/item</p>
+        <div className="bg-ldg-surface border border-ldg-line rounded overflow-hidden">
+          {/* Table header */}
+          <div
+            className="grid gap-3 px-4 py-2.5 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted bg-ldg-surface-alt border-b border-ldg-line items-center"
+            style={{ gridTemplateColumns: COL }}
+          >
+            <span></span>
+            <span>Nombre</span>
+            <span className="text-right">Comisión/item</span>
+            <span className="text-center">Pedidos</span>
+            <span></span>
+          </div>
+
+          {filtrados.length === 0 && (
+            <p className="text-center py-8 text-ldg-muted text-sm">Sin resultados para "{busqueda}".</p>
+          )}
+
+          {filtrados.map((c, i) => (
+            <div key={c.id} className={i < filtrados.length - 1 ? 'border-b border-ldg-line-soft' : ''}>
+              {/* Main row */}
+              <div
+                className="grid gap-3 px-4 py-3 items-center"
+                style={{ gridTemplateColumns: COL }}
+              >
+                <span
+                  className={`w-7 h-7 rounded-full inline-flex items-center justify-center text-[11px] font-bold text-ldg-ink flex-shrink-0 av-${i % 5}`}
+                >
+                  {initials(c.nombre)}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ldg-ink">{c.nombre}</p>
+                  {c.aliases.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {c.aliases.map((a) => (
+                        <span key={a.id} className="inline-flex items-center gap-1 bg-ldg-surface-alt border border-ldg-line text-[10px] text-ldg-muted px-1.5 py-0.5 rounded">
+                          {a.alias}
+                          <button onClick={() => handleEliminarAlias(c.id, a.id)} className="text-ldg-muted hover:text-ldg-danger transition-colors">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-3">
-                  <button onClick={() => navigate(`/clientes/${c.id}`)} className="text-sm text-blue-500 hover:underline">Ver historial</button>
-                  <button onClick={() => abrirEditar(c)} className="text-sm text-gray-400 hover:underline dark:text-gray-500">Editar</button>
-                  <button onClick={() => handleEliminar(c.id)} className="text-sm text-red-400 hover:underline">Eliminar</button>
+                <span className="text-right font-mono text-sm text-ldg-ink-soft">${Number(c.comision_por_item).toFixed(2)}</span>
+                <span className="text-center font-mono text-xs text-ldg-muted">{c.total_pedidos ?? '—'}</span>
+                <div className="flex items-center justify-end gap-3 text-[11px] text-ldg-muted">
+                  <button onClick={() => navigate(`/clientes/${c.id}`)} className="hover:text-ldg-accent transition-colors">historial</button>
+                  <button onClick={() => abrirEditar(c)} className="hover:text-ldg-ink transition-colors">editar</button>
+                  <button onClick={() => handleEliminar(c.id)} className="hover:text-ldg-danger transition-colors">×</button>
                 </div>
               </div>
-
-              <div>
-                <p className="text-xs text-gray-400 mb-2">Aliases:</p>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {c.aliases.length === 0 && <span className="text-xs text-gray-300 dark:text-gray-600">Sin aliases</span>}
-                  {c.aliases.map((a) => (
-                    <span key={a.id} className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs px-2 py-1 rounded-full">
-                      {a.alias}
-                      <button onClick={() => handleEliminarAlias(c.id, a.id)} className="text-gray-400 hover:text-red-400 ml-0.5">&times;</button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Agregar alias..."
-                    value={nuevoAlias[c.id] || ''}
-                    onChange={(e) => setNuevoAlias({ ...nuevoAlias, [c.id]: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAgregarAlias(c.id))}
-                    className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button onClick={() => handleAgregarAlias(c.id)} className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700">
-                    Agregar
-                  </button>
-                </div>
+              {/* Alias input row */}
+              <div className="px-4 pb-2.5 flex items-center gap-2">
+                <span className="text-[10px] text-ldg-muted-soft">+ alias:</span>
+                <input
+                  type="text"
+                  placeholder="Agregar alias..."
+                  value={nuevoAlias[c.id] || ''}
+                  onChange={(e) => setNuevoAlias({ ...nuevoAlias, [c.id]: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAgregarAlias(c.id))}
+                  className="border border-ldg-line bg-ldg-bg text-ldg-ink rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ldg-accent placeholder:text-ldg-muted-soft w-40"
+                />
+                <button
+                  onClick={() => handleAgregarAlias(c.id)}
+                  className="text-[11px] text-ldg-accent font-semibold hover:underline"
+                >
+                  Agregar
+                </button>
               </div>
             </div>
           ))}
@@ -175,15 +215,29 @@ export default function Clientes() {
       <SidePanel open={panelAbierto} onClose={cerrarPanel} title={editando ? `Editar — ${editando.nombre}` : 'Nuevo cliente'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre <span className="text-red-500">*</span></label>
-            <input type="text" placeholder="Nombre del cliente" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required className={inputCls} />
+            <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Nombre <span className="text-ldg-danger">*</span></label>
+            <input
+              type="text"
+              placeholder="Nombre del cliente"
+              value={form.nombre}
+              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+              required
+              className="ldg-input"
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Comision por item ($)</label>
-            <input type="number" step="0.01" min="0" value={form.comision_por_item} onChange={(e) => setForm({ ...form, comision_por_item: e.target.value })} className={inputCls} />
-            <p className="text-xs text-gray-400 mt-1">Usa 0 si no cobras comision.</p>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Comisión por item ($)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.comision_por_item}
+              onChange={(e) => setForm({ ...form, comision_por_item: e.target.value })}
+              className="ldg-input font-mono"
+            />
+            <p className="text-xs text-ldg-muted mt-1">Usa 0 si no cobras comisión.</p>
           </div>
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+          <button type="submit" className="ldg-btn-primary w-full py-2">
             {editando ? 'Guardar cambios' : 'Crear cliente'}
           </button>
         </form>

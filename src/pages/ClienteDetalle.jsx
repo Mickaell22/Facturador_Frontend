@@ -3,14 +3,39 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getHistorialCliente } from '../api'
 import toast from 'react-hot-toast'
 
-function ResumenCard({ label, value, color = 'text-gray-800 dark:text-gray-100' }) {
+const AVATAR_LIGHT = ['#D4B896', '#A8B89F', '#C4A98E', '#9DA8B5', '#B89C9C']
+const AVATAR_DARK  = ['#8B6E48', '#6B7C5E', '#8B6F52', '#5E6E80', '#80605F']
+const avatarBg = () => {
+  const dark = document.documentElement.classList.contains('dark')
+  return (dark ? AVATAR_DARK : AVATAR_LIGHT)[0]
+}
+function initials(name) {
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+}
+
+function StatCell({ label, value, sub, accent, last }) {
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-      <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-xl font-bold ${color}`}>{value}</p>
+    <div className={`flex-1 min-w-0 px-5 py-3.5 ${last ? '' : 'border-r border-ldg-line'}`}>
+      <p className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">{label}</p>
+      <p className={`text-[20px] font-bold font-mono leading-none ${accent || 'text-ldg-ink'}`}>{value}</p>
+      {sub && <p className="text-[11px] text-ldg-muted mt-1">{sub}</p>}
     </div>
   )
 }
+
+function Pill({ kind, children }) {
+  const cls = {
+    pending: 'text-ldg-accent bg-ldg-accent-soft',
+    ok:      'text-ldg-success bg-ldg-success-soft',
+  }[kind] || 'text-ldg-muted bg-ldg-surface-alt'
+  return (
+    <span className={`inline-block text-[10px] font-bold font-mono tracking-wide px-2 py-0.5 rounded-sm ${cls}`}>
+      {children}
+    </span>
+  )
+}
+
+const COL = '80px 110px 72px 1fr 104px 104px 110px'
 
 export default function ClienteDetalle() {
   const { id } = useParams()
@@ -37,92 +62,115 @@ export default function ClienteDetalle() {
     cargar()
   }, [id])
 
-  if (loading) return <p className="text-center py-10 text-gray-400">Cargando...</p>
-  if (!data) return null
+  if (loading) return <p className="text-center py-16 text-ldg-muted text-sm">Cargando...</p>
+  if (!data)   return null
 
   const { cliente, resumen, historial } = data
 
+  const totalGastado = resumen.total_gastado ?? historial.reduce((s, h) => s + h.total, 0)
+  const totalItems   = historial.reduce((s, h) => s + (h.total_items ?? 0), 0)
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate('/clientes')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm">
-          Clientes
-        </button>
-        <span className="text-gray-300 dark:text-gray-600">/</span>
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">{cliente.nombre}</h1>
-        <span className="text-sm text-gray-400">comision ${Number(cliente.comision_por_item).toFixed(2)}/item</span>
-        <button
-          onClick={copiarEnlace}
-          className="ml-auto text-sm text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-1"
-        >
-          Copiar enlace publico
-        </button>
+      {/* Breadcrumb */}
+      <div className="text-xs text-ldg-muted mb-2">
+        <button onClick={() => navigate('/clientes')} className="hover:text-ldg-ink transition-colors">Clientes</button>
+        <span className="mx-2">/</span>
+        <span>{cliente.nombre}</span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <ResumenCard label="Pedidos" value={resumen.total_pedidos} />
-        <ResumenCard label="Total gastado" value={`$${resumen.total_gastado.toFixed(2)}`} />
-        <ResumenCard label="Total pagado" value={`$${resumen.total_pagado.toFixed(2)}`} color="text-green-500" />
-        <ResumenCard
-          label="Saldo pendiente"
+      {/* Page header */}
+      <div className="flex items-end justify-between mb-5 pb-4 border-b border-ldg-line">
+        <div className="flex items-center gap-4">
+          <span
+            className="w-14 h-14 rounded-full inline-flex items-center justify-center text-xl font-bold text-ldg-ink flex-shrink-0 av-0"
+          >
+            {initials(cliente.nombre)}
+          </span>
+          <div>
+            <h1 className="text-[28px] font-bold text-ldg-ink tracking-tight">{cliente.nombre}</h1>
+            <p className="text-sm text-ldg-muted mt-1 font-mono">comisión ${Number(cliente.comision_por_item).toFixed(2)}/item</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {data.cliente.token_publico && (
+            <button onClick={copiarEnlace} className="ldg-btn-secondary">Copiar enlace</button>
+          )}
+        </div>
+      </div>
+
+      {/* Stats strip */}
+      <div className="bg-ldg-surface border border-ldg-line rounded flex mb-6 overflow-hidden">
+        <StatCell label="Pedidos"         value={resumen.total_pedidos} sub="histórico" />
+        <StatCell label="Items totales"   value={totalItems} sub="comprados" />
+        <StatCell label="Total gastado"   value={`$${totalGastado.toFixed(2)}`} sub="histórico" />
+        <StatCell label="Promedio/pedido" value={historial.length > 0 ? `$${(totalGastado / historial.length).toFixed(2)}` : '—'} />
+        <StatCell
+          label="Saldo actual"
           value={`$${resumen.total_pendiente.toFixed(2)}`}
-          color={resumen.total_pendiente > 0 ? 'text-red-500' : 'text-green-500'}
+          accent={resumen.total_pendiente > 0 ? 'text-ldg-accent' : 'text-ldg-success'}
+          sub={resumen.total_pendiente > 0 ? 'por cobrar' : 'al día'}
+          last
         />
       </div>
 
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-        Historial de pedidos
-      </h2>
+      {/* History table */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xs font-bold tracking-widest uppercase text-ldg-ink-soft">Historial de pedidos</h2>
+        <span className="text-[11px] text-ldg-muted font-mono">{historial.length} pedidos · ordenados por fecha</span>
+      </div>
 
       {historial.length === 0 ? (
-        <p className="text-center py-10 text-gray-400">Sin pedidos aun.</p>
+        <p className="text-center py-10 text-ldg-muted text-sm">Sin pedidos aún.</p>
       ) : (
-        <div className="space-y-3">
-          {historial.map((h) => (
-            <div
-              key={h.pedido_cliente_id}
-              onClick={() => navigate(`/pedidos/${h.pedido_id}`)}
-              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 cursor-pointer hover:shadow-md dark:hover:shadow-gray-800 transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold text-gray-800 dark:text-gray-100">
-                      Pedido #{h.pedido_numero ?? h.pedido_id}
-                    </span>
-                    <span className="text-sm text-gray-400">
-                      {new Date(h.fecha + 'T00:00:00').toLocaleDateString('es', {
-                        day: '2-digit', month: 'short', year: 'numeric',
-                      })}
-                    </span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      h.estado_pago === 'PAGADO'
-                        ? 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400'
-                        : 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400'
-                    }`}>
-                      {h.estado_pago}
-                    </span>
+        <div className="bg-ldg-surface border border-ldg-line rounded overflow-hidden">
+          {/* Table header */}
+          <div
+            className="grid gap-3 px-4 py-2.5 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted bg-ldg-surface-alt border-b border-ldg-line items-center"
+            style={{ gridTemplateColumns: COL }}
+          >
+            <span>#</span>
+            <span>Fecha</span>
+            <span className="text-right">Items</span>
+            <span></span>
+            <span className="text-right">Total</span>
+            <span className="text-right">Saldo</span>
+            <span className="text-center">Estado</span>
+          </div>
+
+          {historial.map((h, i) => {
+            const pagado  = (h.saldo ?? h.total - h.pagado) <= 0
+            const saldo   = h.saldo ?? (h.total - h.pagado)
+            const pct     = h.total > 0 ? Math.min(100, (h.pagado / h.total) * 100) : 100
+
+            return (
+              <div key={h.pedido_cliente_id ?? h.pedido_id}>
+                <div
+                  onClick={() => navigate(`/pedidos/${h.pedido_id}`)}
+                  className={`grid gap-3 px-4 py-3 text-sm items-center cursor-pointer hover:bg-ldg-surface-alt transition-colors ${
+                    i < historial.length - 1 ? 'border-b border-ldg-line-soft' : ''
+                  }`}
+                  style={{ gridTemplateColumns: COL }}
+                >
+                  <span className="font-mono font-bold text-ldg-ink">#{String(h.pedido_numero ?? h.pedido_id).padStart(3, '0')}</span>
+                  <span className="font-mono text-ldg-ink-soft text-xs">{h.fecha}</span>
+                  <span className="text-right font-mono text-ldg-ink-soft text-xs">{h.total_items ?? h.items_llegados ?? '—'}</span>
+                  <div className="h-1 bg-ldg-line-soft rounded-full overflow-hidden mx-2">
+                    <div className={`h-full rounded-full ${pagado ? 'bg-ldg-success' : 'bg-ldg-accent'}`} style={{ width: `${pct}%` }} />
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">
-                    {h.items_llegados} de {h.total_items} articulos llegados
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">${h.total.toFixed(2)}</p>
-                  {h.saldo > 0 && <p className="text-sm text-red-500">debe ${h.saldo.toFixed(2)}</p>}
-                  {h.saldo <= 0 && h.pagado > 0 && <p className="text-sm text-green-500">pagado ${h.pagado.toFixed(2)}</p>}
+                  <span className="text-right font-mono font-semibold">${h.total.toFixed(2)}</span>
+                  <span className={`text-right font-mono font-semibold text-xs ${saldo > 0 ? 'text-ldg-accent' : 'text-ldg-muted-soft'}`}>
+                    ${saldo.toFixed(2)}
+                  </span>
+                  <span className="text-center">
+                    {h.estado_pago === 'PAGADO' || pagado
+                      ? <Pill kind="ok">OK</Pill>
+                      : <Pill kind="pending">PEND</Pill>}
+                  </span>
                 </div>
               </div>
-              {h.total > 0 && (
-                <div className="mt-3 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-400 rounded-full transition-all"
-                    style={{ width: `${Math.min((h.pagado / h.total) * 100, 100)}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

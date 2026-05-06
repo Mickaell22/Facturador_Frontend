@@ -44,6 +44,8 @@ export const removeClienteFromPedido = (pedidoId, clienteId) =>
   api.delete(`/pedidos/${pedidoId}/clientes/${clienteId}`)
 export const updateComisionPedidoCliente = (pedidoId, clienteId, comision) =>
   api.patch(`/pedidos/${pedidoId}/clientes/${clienteId}/comision`, { comision_por_item: comision })
+export const moverClientePedido = (pedidoId, clienteId, destinoPedidoId) =>
+  api.post(`/pedidos/${pedidoId}/clientes/${clienteId}/mover`, { destino_pedido_id: destinoPedidoId })
 
 // ── Items ─────────────────────────────────────────────
 export const getItems = (pcId) => api.get(`/pedido-clientes/${pcId}/items`)

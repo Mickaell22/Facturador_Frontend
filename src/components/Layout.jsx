@@ -5,47 +5,68 @@ export default function Layout() {
   const [dark, setDark] = useDarkMode()
   const navigate = useNavigate()
 
-  const linkClass = ({ isActive }) =>
-    `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-      isActive
-        ? 'bg-blue-600 text-white'
-        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-    }`
-
   const handleLogout = () => {
     localStorage.removeItem('token')
     navigate('/login', { replace: true })
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <span className="font-bold text-lg text-blue-600">Facturador</span>
+    <div className="min-h-screen flex flex-col bg-ldg-bg text-ldg-ink">
+      <header className="border-b border-ldg-line bg-ldg-bg sticky top-0 z-10 flex items-center justify-between px-8 py-3.5">
+        <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <nav className="flex gap-1">
-              <NavLink to="/" end className={linkClass}>Pedidos</NavLink>
-              <NavLink to="/clientes" className={linkClass}>Clientes</NavLink>
-            </nav>
-            <button
-              onClick={() => setDark(!dark)}
-              className="ml-2 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
-              title={dark ? 'Modo claro' : 'Modo oscuro'}
-            >
-              {dark ? 'Claro' : 'Oscuro'}
-            </button>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
-              title="Cerrar sesion"
-            >
-              Salir
-            </button>
+            <div className="w-[22px] h-[22px] rounded bg-ldg-ink text-ldg-on-ink flex items-center justify-center text-xs font-extrabold font-mono flex-shrink-0">
+              F
+            </div>
+            <span className="text-sm font-bold tracking-widest">FACTURADOR</span>
           </div>
+          <nav className="flex gap-0.5 ml-4">
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `px-2.5 py-1.5 text-sm font-semibold tracking-wide transition-colors border-b-2 ${
+                  isActive
+                    ? 'text-ldg-ink border-ldg-accent'
+                    : 'text-ldg-muted border-transparent hover:text-ldg-ink'
+                }`
+              }
+            >
+              Pedidos
+            </NavLink>
+            <NavLink
+              to="/clientes"
+              className={({ isActive }) =>
+                `px-2.5 py-1.5 text-sm font-semibold tracking-wide transition-colors border-b-2 ${
+                  isActive
+                    ? 'text-ldg-ink border-ldg-accent'
+                    : 'text-ldg-muted border-transparent hover:text-ldg-ink'
+                }`
+              }
+            >
+              Clientes
+            </NavLink>
+          </nav>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-ldg-muted font-mono">
+          <button
+            onClick={() => setDark(!dark)}
+            className="text-ldg-muted hover:text-ldg-ink transition-colors"
+            title={dark ? 'Modo claro' : 'Modo oscuro'}
+          >
+            {dark ? '◑ Claro' : '◐ Oscuro'}
+          </button>
+          <span className="w-px h-3.5 bg-ldg-line" />
+          <button
+            onClick={handleLogout}
+            className="text-ldg-muted hover:text-ldg-ink transition-colors"
+          >
+            Salir
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
+      <main className="flex-1 px-8 py-6">
         <Outlet />
       </main>
     </div>

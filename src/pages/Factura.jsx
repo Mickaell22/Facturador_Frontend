@@ -36,7 +36,7 @@ export default function Factura() {
   const handleCopiarImagen = async () => {
     if (!facturaRef.current) return
     try {
-      const canvas = await html2canvas(facturaRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const canvas = await html2canvas(facturaRef.current, { scale: 2, useCORS: true, backgroundColor: '#FFFCF5' })
       canvas.toBlob(async (blob) => {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
         toast.success('Imagen copiada al portapapeles')
@@ -46,112 +46,132 @@ export default function Factura() {
     }
   }
 
-  if (loading) return <p className="text-center py-10 text-gray-400">Cargando...</p>
+  if (loading) return <p className="text-center py-16 text-ldg-muted text-sm">Cargando...</p>
   if (!pc || !pedido) return null
 
   const fechaFormateada = new Date(pedido.fecha + 'T00:00:00').toLocaleDateString('es', {
     day: '2-digit', month: 'long', year: 'numeric',
   })
   const itemsLlegados = pc.items.filter((i) => i.llegado)
+  const pagado = Number(pc.saldo) <= 0
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 py-6 px-4">
-      {/* Botones */}
-      <div className="no-print flex gap-3 justify-center mb-6">
-        <button onClick={() => navigate(-1)} className="border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
-          Volver
-        </button>
-        <button onClick={handleImprimir} className="bg-gray-800 dark:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700 dark:hover:bg-gray-600">
-          Imprimir / PDF
-        </button>
-        <button onClick={handleCopiarImagen} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-          Copiar imagen
-        </button>
+    <div className="min-h-screen bg-[#E8E2D4] dark:bg-[#0F0D0B] py-10 px-6 font-sans">
+      {/* Toolbar — no-print */}
+      <div className="no-print flex gap-2 justify-center mb-8">
+        <button onClick={() => navigate(-1)} className="ldg-btn-secondary">Volver</button>
+        <button onClick={handleImprimir} className="ldg-btn-secondary">Imprimir / PDF</button>
+        <button onClick={handleCopiarImagen} className="ldg-btn-primary">Copiar imagen</button>
       </div>
 
-      {/* Factura — fondo blanco fijo para que la imagen exportada sea legible */}
-      <div ref={facturaRef} className="bg-white max-w-lg mx-auto rounded-xl shadow-sm p-6 space-y-5">
+      {/* Invoice paper */}
+      <div
+        ref={facturaRef}
+        className="max-w-[700px] mx-auto bg-ldg-surface border border-ldg-line text-ldg-ink px-14 py-12"
+        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+      >
         {/* Header */}
-        <div className="border-b border-gray-200 pb-4">
-          <h1 className="text-xl font-bold text-gray-800">Resumen de pedido</h1>
-          <p className="text-gray-500 text-sm mt-1">Pedido #{pedido.numero ?? pedido.id} — {fechaFormateada}</p>
-          <p className="text-lg font-semibold text-gray-800 mt-2">{pc.cliente_nombre}</p>
-        </div>
-
-        {/* Items */}
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Articulos</p>
-          {pc.items.length === 0 ? (
-            <p className="text-sm text-gray-400">Sin articulos registrados.</p>
-          ) : (
-            <div className="space-y-2">
-              {pc.items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  {item.imagen_url && (
-                    <img src={item.imagen_url} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${!item.llegado ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                      {item.articulo || `Articulo #${item.numero}`}
-                    </p>
-                    {item.link && (
-                      <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate block">ver enlace</a>
-                    )}
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className={`text-sm font-medium ${!item.llegado ? 'text-gray-300' : 'text-gray-800'}`}>${Number(item.precio).toFixed(2)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Totales */}
-        <div className="border-t border-gray-200 pt-4 space-y-1.5">
-          <div className="flex justify-between text-sm text-gray-500">
-            <span>Subtotal ({itemsLlegados.length} articulos llegados)</span>
-            <span>${Number(pc.subtotal).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm text-gray-500">
-            <span>Comision ({itemsLlegados.length} x ${Number(pc.cliente_comision).toFixed(2)})</span>
-            <span>${Number(pc.comision).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm font-semibold text-gray-700 pt-1 border-t border-gray-100">
-            <span>Total</span>
-            <span>${Number(pc.total).toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Pagos */}
-        {pc.pagos.length > 0 && (
+        <div className="flex justify-between items-start mb-9 pb-5 border-b-2 border-ldg-ink">
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Pagos registrados</p>
-            <div className="space-y-1.5">
-              {pc.pagos.map((pago) => (
-                <div key={pago.id} className="flex justify-between text-sm">
-                  <span className="text-gray-500 capitalize">
-                    {pago.tipo}{pago.notas && ` — ${pago.notas}`}
-                    <span className="text-gray-400 ml-2 text-xs">
-                      {new Date(pago.fecha).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
-                    </span>
-                  </span>
-                  <span className="text-green-600 font-medium">-${Number(pago.monto).toFixed(2)}</span>
-                </div>
-              ))}
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-7 h-7 rounded bg-ldg-ink text-ldg-on-ink flex items-center justify-center text-sm font-extrabold font-mono">F</div>
+              <span className="text-sm font-bold tracking-widest text-ldg-ink">FACTURADOR</span>
+            </div>
+            <div className="text-[11px] text-ldg-muted leading-relaxed">
+              Mickaell Pesántez<br />
+              mickaell@gmail.com<br />
+              Cuenca, Ecuador
             </div>
           </div>
-        )}
-
-        {/* Saldo */}
-        <div className={`rounded-xl p-4 ${Number(pc.saldo) <= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-          <div className="flex justify-between items-center">
-            <span className="font-semibold text-gray-700">Saldo pendiente</span>
-            <span className={`text-xl font-bold ${Number(pc.saldo) <= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${Number(pc.saldo).toFixed(2)}
-            </span>
+          <div className="text-right">
+            <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-ldg-muted mb-1">Factura</div>
+            <div className="text-[28px] font-bold font-mono text-ldg-ink tracking-tight">
+              #{String(pedido.numero ?? pedido.id).padStart(3, '0')}
+            </div>
+            <div className="text-xs text-ldg-ink-soft mt-1 font-mono">{fechaFormateada}</div>
           </div>
-          {Number(pc.saldo) <= 0 && <p className="text-green-600 text-xs mt-1">Pagado en su totalidad</p>}
+        </div>
+
+        {/* Billing info */}
+        <div className="grid grid-cols-2 gap-6 mb-7">
+          <div>
+            <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Facturado a</div>
+            <div className="text-base font-bold text-ldg-ink">{pc.cliente_nombre}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Estado</div>
+            <div className={`text-base font-bold font-mono ${pagado ? 'text-ldg-success' : 'text-ldg-accent'}`}>
+              {pagado ? 'PAGADO' : `SALDO $${Number(pc.saldo).toFixed(2)}`}
+            </div>
+          </div>
+        </div>
+
+        {/* Items table */}
+        <table className="w-full border-collapse mb-6 text-sm">
+          <thead>
+            <tr>
+              {['#', 'Descripción', 'Llegó', 'Precio'].map((h, i) => (
+                <th
+                  key={h}
+                  className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted"
+                  style={{ textAlign: i === 2 ? 'center' : i === 3 ? 'right' : 'left' }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pc.items.map((item) => (
+              <tr key={item.id}>
+                <td className="py-2.5 border-b border-ldg-line-soft font-mono text-ldg-muted text-xs">
+                  {String(item.numero).padStart(2, '0')}
+                </td>
+                <td className="py-2.5 border-b border-ldg-line-soft text-ldg-ink">{item.articulo || `Artículo #${item.numero}`}</td>
+                <td className="py-2.5 border-b border-ldg-line-soft text-center text-ldg-muted font-mono text-xs">
+                  {item.llegado ? '✓' : '—'}
+                </td>
+                <td className="py-2.5 border-b border-ldg-line-soft text-right font-mono font-semibold text-ldg-ink">
+                  ${Number(item.precio).toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Totals */}
+        <div className="flex justify-end mb-7">
+          <div className="w-72 text-sm font-mono space-y-1">
+            <div className="flex justify-between text-ldg-ink-soft py-1">
+              <span>Subtotal ({itemsLlegados.length} llegados)</span>
+              <span>${Number(pc.subtotal).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-ldg-ink-soft py-1">
+              <span>Comisión ({itemsLlegados.length} × ${Number(pc.cliente_comision).toFixed(2)})</span>
+              <span>${Number(pc.comision).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-base py-2 border-t border-b border-ldg-ink text-ldg-ink">
+              <span>TOTAL</span><span>${Number(pc.total).toFixed(2)}</span>
+            </div>
+            {pc.pagos.length > 0 && (
+              <>
+                {pc.pagos.map((pago) => (
+                  <div key={pago.id} className="flex justify-between text-ldg-success py-0.5">
+                    <span>{pago.tipo}{pago.notas ? ` — ${pago.notas}` : ''} ({new Date(pago.fecha).toLocaleDateString('es', { day: '2-digit', month: 'short' })})</span>
+                    <span>−${Number(pago.monto).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className={`flex justify-between font-bold py-1 ${pagado ? 'text-ldg-success' : 'text-ldg-accent'}`}>
+                  <span>Saldo</span><span>${Number(pc.saldo).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-9 pt-4 border-t border-ldg-line-soft text-[11px] text-ldg-muted text-center font-mono tracking-widest">
+          GRACIAS POR TU COMPRA · FACTURADOR
         </div>
       </div>
     </div>

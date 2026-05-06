@@ -2,10 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ledger tokens — light mode */
+:root {
+  --ldg-bg:           #F6F1E8;
+  --ldg-surface:      #FFFCF5;
+  --ldg-surface-alt:  #FBF7EB;
+  --ldg-sunken:       #F0E8D8;
+  --ldg-line:         #E2D8C5;
+  --ldg-line-soft:    #F0E8D8;
+  --ldg-ink:          #1A1714;
+  --ldg-ink-soft:     #5A5247;
+  --ldg-muted:        #8B7E6A;
+  --ldg-muted-soft:   #C4B59E;
+  --ldg-accent:       #B8530A;
+  --ldg-accent-soft:  #FBE9D6;
+  --ldg-success:      #3D6F3F;
+  --ldg-success-soft: #E5EBDD;
+  --ldg-danger:       #A04B2B;
+  --ldg-on-ink:       #F6F1E8;
+  --ldg-on-ink-soft:  #B8AB94;
+}
+
+/* Ledger tokens — dark mode */
+.dark {
+  --ldg-bg:           #1A1714;
+  --ldg-surface:      #221E19;
+  --ldg-surface-alt:  #2A2520;
+  --ldg-sunken:       #15110E;
+  --ldg-line:         #3A332C;
+  --ldg-line-soft:    #2D2722;
+  --ldg-ink:          #F6F1E8;
+  --ldg-ink-soft:     #C8BDA8;
+  --ldg-muted:        #8B7E6A;
+  --ldg-muted-soft:   #5A5247;
+  --ldg-accent:       #E07B2E;
+  --ldg-accent-soft:  #3A2918;
+  --ldg-success:      #7AB46E;
+  --ldg-success-soft: #1E2D1F;
+  --ldg-danger:       #D87750;
+  --ldg-on-ink:       #1A1714;
+  --ldg-on-ink-soft:  #5A5247;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+    @apply bg-ldg-bg text-ldg-ink font-sans;
   }
+}
+
+@layer components {
+  .ldg-input {
+    @apply w-full border border-ldg-line bg-ldg-bg text-ldg-ink rounded px-3 py-2 text-sm
+           focus:outline-none focus:ring-1 focus:ring-ldg-accent
+           placeholder:text-ldg-muted-soft;
+  }
+  .ldg-select {
+    @apply border border-ldg-line bg-ldg-bg text-ldg-ink rounded px-3 py-2 text-sm
+           focus:outline-none focus:ring-1 focus:ring-ldg-accent;
+  }
+  .ldg-btn {
+    @apply px-3.5 py-1.5 text-sm font-semibold rounded cursor-pointer transition-opacity
+           hover:opacity-90 active:opacity-75;
+  }
+  .ldg-btn-primary {
+    @apply ldg-btn bg-ldg-accent text-ldg-on-ink border-0;
+  }
+  .ldg-btn-secondary {
+    @apply ldg-btn bg-ldg-surface text-ldg-ink border border-ldg-line;
+  }
+  .ldg-btn-ghost {
+    @apply ldg-btn bg-transparent text-ldg-ink border border-ldg-line;
+  }
+  .ldg-btn-success {
+    @apply ldg-btn bg-ldg-surface text-ldg-success border border-ldg-line;
+  }
+  /* Avatar palette — 5 slots, auto dark mode via CSS vars */
+  .av-0 { background: #D4B896; }
+  .av-1 { background: #A8B89F; }
+  .av-2 { background: #C4A98E; }
+  .av-3 { background: #9DA8B5; }
+  .av-4 { background: #B89C9C; }
+  .dark .av-0 { background: #8B6E48; }
+  .dark .av-1 { background: #6B7C5E; }
+  .dark .av-2 { background: #8B6F52; }
+  .dark .av-3 { background: #5E6E80; }
+  .dark .av-4 { background: #80605F; }
 }
 
 @media print {

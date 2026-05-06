@@ -29,14 +29,12 @@ export default function FacturaPublica() {
     cargar()
   }, [token])
 
-  // Muestra mensaje de "iniciando servidor" a los 3 segundos
   useEffect(() => {
     if (!loading) return
     const t = setTimeout(() => setIniciandoServidor(true), 3000)
     return () => clearTimeout(t)
   }, [loading])
 
-  // Auto-recarga una vez si el servidor no responde en 7 segundos (cold start Railway)
   useEffect(() => {
     if (!loading) return
     const key = `cold_reload_${token}`
@@ -54,7 +52,7 @@ export default function FacturaPublica() {
   const handleCopiarImagen = async () => {
     if (!facturaRef.current) return
     try {
-      const canvas = await html2canvas(facturaRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const canvas = await html2canvas(facturaRef.current, { scale: 2, useCORS: true, backgroundColor: '#FFFCF5' })
       canvas.toBlob(async (blob) => {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
         toast.success('Imagen copiada al portapapeles')
@@ -65,136 +63,177 @@ export default function FacturaPublica() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 gap-4 px-6">
-      <p className="text-gray-500 text-base">Cargando...</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-ldg-bg gap-4 px-6">
+      <p className="text-ldg-muted text-sm">Cargando...</p>
       {iniciandoServidor && (
         <>
-          <p className="text-gray-400 text-sm text-center max-w-xs">
-            El servidor esta iniciando, esto puede tardar unos segundos.
+          <p className="text-ldg-muted text-sm text-center max-w-xs">
+            El servidor está iniciando, esto puede tardar unos segundos.
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-white border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50 active:bg-gray-100"
+            className="ldg-btn-secondary text-sm"
           >
-            Si no carga, toca aqui para actualizar
+            Si no carga, toca aquí para actualizar
           </button>
         </>
       )}
     </div>
   )
+
   if (noValido) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <p className="text-gray-500">Este enlace no es valido o ya no existe.</p>
+    <div className="min-h-screen flex items-center justify-center bg-ldg-bg">
+      <p className="text-ldg-muted text-sm">Este enlace no es válido o ya no existe.</p>
     </div>
   )
+
   if (!data) return null
 
   const fechaFormateada = new Date(data.fecha + 'T00:00:00').toLocaleDateString('es', {
     day: '2-digit', month: 'long', year: 'numeric',
   })
   const itemsLlegados = data.items.filter((i) => i.llegado)
+  const pagado = data.saldo <= 0
+  const pct    = data.total > 0 ? Math.min(100, (data.total_pagado ?? (data.total - data.saldo)) / data.total * 100) : 100
 
   return (
     <>
-    <div className="min-h-screen bg-gray-100 py-6 px-4">
-      <div className="no-print flex gap-3 justify-center mb-6">
-        <button onClick={handleImprimir} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700">
-          Imprimir / PDF
-        </button>
-        <button onClick={handleCopiarImagen} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-          Copiar imagen
-        </button>
-      </div>
+      <div className="min-h-screen bg-ldg-bg font-sans" style={{ colorScheme: 'light' }}>
+        {/* Minimal header */}
+        <header className="border-b border-ldg-line px-6 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-[22px] h-[22px] rounded bg-ldg-ink text-ldg-on-ink flex items-center justify-center text-xs font-extrabold font-mono">F</div>
+            <span className="text-sm font-bold tracking-widest text-ldg-ink">FACTURADOR</span>
+          </div>
+          <span className="text-[11px] text-ldg-muted font-mono">vista pública · solo lectura</span>
+        </header>
 
-      <div ref={facturaRef} className="bg-white max-w-lg mx-auto rounded-xl shadow-sm p-6 space-y-5">
-        <div className="border-b border-gray-200 pb-4">
-          <h1 className="text-xl font-bold text-gray-800">Resumen de pedido</h1>
-          <p className="text-gray-500 text-sm mt-1">Pedido #{data.pedido_numero ?? data.pedido_id} — {fechaFormateada}</p>
-          <p className="text-lg font-semibold text-gray-800 mt-2">{data.cliente_nombre}</p>
-        </div>
+        <div className="max-w-[720px] mx-auto px-6 py-8 pb-12">
+          {/* Invoice heading */}
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Factura</div>
+              <h1 className="text-[32px] font-bold font-mono text-ldg-ink tracking-tight">#{String(data.pedido_numero ?? data.pedido_id).padStart(3, '0')}</h1>
+              <p className="text-sm text-ldg-muted mt-1.5">{fechaFormateada}</p>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Para</div>
+              <div className="text-base font-bold text-ldg-ink">{data.cliente_nombre}</div>
+              <div className="mt-2.5">
+                {pagado
+                  ? <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-sm text-ldg-success bg-ldg-success-soft">PAGADO</span>
+                  : <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-sm text-ldg-accent bg-ldg-accent-soft">PENDIENTE ${data.saldo.toFixed(2)}</span>}
+              </div>
+            </div>
+          </div>
 
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Articulos</p>
-          {data.items.length === 0 ? (
-            <p className="text-sm text-gray-400">Sin articulos registrados.</p>
-          ) : (
-            <div className="space-y-2">
-              {data.items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  {item.imagen_url && (
-                    <img
-                      src={item.imagen_url}
-                      alt=""
-                      className="w-10 h-10 object-cover rounded-lg border border-gray-100 flex-shrink-0 cursor-zoom-in"
-                      onClick={() => setLightboxSrc(item.imagen_url)}
-                    />
+          {/* Items */}
+          <div ref={facturaRef} className="bg-ldg-surface border border-ldg-line rounded overflow-hidden mb-5">
+            <div
+              className="grid gap-3 px-4 py-2.5 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted bg-ldg-surface-alt border-b border-ldg-line items-center"
+              style={{ gridTemplateColumns: '36px 52px 1fr 96px 56px' }}
+            >
+              <span>#</span><span></span><span>Artículo</span>
+              <span className="text-right">Precio</span>
+              <span className="text-center">Llegó</span>
+            </div>
+
+            {data.items.map((item) => (
+              <div
+                key={item.id}
+                className="grid gap-3 px-4 py-3 items-center border-b border-ldg-line-soft last:border-b-0"
+                style={{ gridTemplateColumns: '36px 52px 1fr 96px 56px' }}
+              >
+                <span className="font-mono text-ldg-muted text-xs">{String(item.numero).padStart(2, '0')}</span>
+                {item.imagen_url ? (
+                  <img
+                    src={item.imagen_url}
+                    alt=""
+                    className="w-11 h-11 object-cover rounded cursor-zoom-in"
+                    style={{ background: 'var(--ldg-sunken)' }}
+                    onClick={() => setLightboxSrc(item.imagen_url)}
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded bg-ldg-sunken flex items-center justify-center text-ldg-muted-soft text-sm">—</div>
+                )}
+                <div className="min-w-0">
+                  <p className={`text-sm ${!item.llegado ? 'text-ldg-muted line-through' : 'text-ldg-ink'}`}>
+                    {item.articulo || `Artículo #${item.numero}`}
+                  </p>
+                  {item.link && (
+                    <a href={item.link} target="_blank" rel="noreferrer" className="text-[11px] text-ldg-accent hover:underline">
+                      ↗ ver enlace
+                    </a>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${!item.llegado ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                      {item.articulo || `Articulo #${item.numero}`}
-                    </p>
-                    {item.link && (
-                      <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate block">
-                        ver enlace
-                      </a>
-                    )}
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className={`text-sm font-medium ${!item.llegado ? 'text-gray-300' : 'text-gray-800'}`}>${item.precio.toFixed(2)}</p>
-                  </div>
                 </div>
-              ))}
+                <span className={`text-right font-mono font-semibold text-sm ${!item.llegado ? 'text-ldg-muted-soft' : 'text-ldg-ink'}`}>
+                  ${item.precio.toFixed(2)}
+                </span>
+                <span className="text-center">
+                  {item.llegado
+                    ? <span className="inline-block w-[18px] h-[18px] rounded-full bg-ldg-success text-ldg-on-ink text-[11px] font-bold leading-[18px] text-center">✓</span>
+                    : <span className="inline-block w-[18px] h-[18px] rounded-full border-[1.5px] border-dashed border-ldg-muted-soft" />}
+                </span>
+              </div>
+            ))}
+
+            {/* Totals footer */}
+            <div className="px-4 py-3.5 bg-ldg-surface-alt border-t border-ldg-line">
+              <div className="space-y-1 text-sm font-mono mb-3">
+                <div className="flex justify-between text-ldg-ink-soft">
+                  <span>subtotal ({data.items.length} items)</span>
+                  <span>${data.subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-ldg-ink-soft">
+                  <span>comisión ({itemsLlegados.length} × ${data.cliente_comision.toFixed(2)})</span>
+                  <span>${data.comision.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-ldg-ink font-bold pt-1.5 mt-1 border-t border-ldg-line text-base">
+                  <span>TOTAL</span><span>${data.total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-ldg-success">
+                  <span>pagado</span><span>−${(data.total_pagado ?? (data.total - data.saldo)).toFixed(2)}</span>
+                </div>
+                <div className={`flex justify-between font-bold text-[15px] ${pagado ? 'text-ldg-success' : 'text-ldg-accent'}`}>
+                  <span>saldo</span><span>${data.saldo.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="h-1 bg-ldg-line rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${pagado ? 'bg-ldg-success' : 'bg-ldg-accent'}`} style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Pagos */}
+          {data.pagos.length > 0 && (
+            <div className="mb-5">
+              <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-2">Pagos recibidos</div>
+              <div className="bg-ldg-surface border border-ldg-line rounded px-4 py-2.5 space-y-1.5">
+                {data.pagos.map((p) => (
+                  <div key={p.id} className="flex justify-between text-sm font-mono">
+                    <span className="text-ldg-ink-soft">
+                      {p.fecha} · {p.tipo}{p.notas ? ` (${p.notas})` : ''}
+                    </span>
+                    <span className="text-ldg-success font-bold">+${p.monto.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </div>
 
-        <div className="border-t border-gray-200 pt-4 space-y-1.5">
-          <div className="flex justify-between text-sm text-gray-500">
-            <span>Subtotal ({itemsLlegados.length} articulos llegados)</span>
-            <span>${data.subtotal.toFixed(2)}</span>
+          {/* Actions */}
+          <div className="no-print flex gap-2 justify-end">
+            <button onClick={handleImprimir} className="ldg-btn-secondary">Imprimir</button>
+            <button onClick={handleCopiarImagen} className="ldg-btn-secondary">Copiar imagen</button>
           </div>
-          <div className="flex justify-between text-sm text-gray-500">
-            <span>Comision ({itemsLlegados.length} x ${data.cliente_comision.toFixed(2)})</span>
-            <span>${data.comision.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm font-semibold text-gray-700 pt-1 border-t border-gray-100">
-            <span>Total</span>
-            <span>${data.total.toFixed(2)}</span>
-          </div>
-        </div>
 
-        {data.pagos.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Pagos registrados</p>
-            <div className="space-y-1.5">
-              {data.pagos.map((pago) => (
-                <div key={pago.id} className="flex justify-between text-sm">
-                  <span className="text-gray-500 capitalize">
-                    {pago.tipo}{pago.notas && ` — ${pago.notas}`}
-                    <span className="text-gray-400 ml-2 text-xs">
-                      {new Date(pago.fecha).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
-                    </span>
-                  </span>
-                  <span className="text-green-600 font-medium">-${pago.monto.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
+          <div className="mt-8 text-[11px] text-ldg-muted text-center font-mono tracking-wide">
+            facturador · {token}
           </div>
-        )}
-
-        <div className={`rounded-xl p-4 ${data.saldo <= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-          <div className="flex justify-between items-center">
-            <span className="font-semibold text-gray-700">Saldo pendiente</span>
-            <span className={`text-xl font-bold ${data.saldo <= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${data.saldo.toFixed(2)}
-            </span>
-          </div>
-          {data.saldo <= 0 && <p className="text-green-600 text-xs mt-1">Pagado en su totalidad</p>}
         </div>
       </div>
-    </div>
 
-    {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+      {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </>
   )
 }
