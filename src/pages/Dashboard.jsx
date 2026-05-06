@@ -242,7 +242,7 @@ export default function Dashboard() {
               </div>
               {p.notas && <p className="text-[11px] text-ldg-muted italic">{p.notas}</p>}
             </div>
-            <span className="text-right font-mono text-ldg-ink-soft text-xs">{p.items ?? 0}</span>
+            <span className="text-right font-mono text-ldg-ink-soft text-xs">{p.total_items ?? 0}</span>
             <span className={`text-right font-mono font-semibold text-xs ${p.total_por_cobrar > 0 ? 'text-ldg-accent' : 'text-ldg-muted-soft'}`}>
               {privado ? oculto : `$${Number(p.total_por_cobrar).toFixed(2)}`}
             </span>
