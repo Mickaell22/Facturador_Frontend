@@ -78,9 +78,9 @@ export default function Factura() {
               <span className="text-sm font-bold tracking-widest text-ldg-ink">FACTURADOR</span>
             </div>
             <div className="text-[11px] text-ldg-muted leading-relaxed">
-              Mickaell Pesántez<br />
-              mickaell@gmail.com<br />
-              Cuenca, Ecuador
+              Mickaell Morán Vera<br />
+              mickaelmoranvera03@gmail.com<br />
+              Guayaquil, Ecuador
             </div>
           </div>
           <div className="text-right">
@@ -110,15 +110,11 @@ export default function Factura() {
         <table className="w-full border-collapse mb-6 text-sm">
           <thead>
             <tr>
-              {['#', 'Descripción', 'Llegó', 'Precio'].map((h, i) => (
-                <th
-                  key={h}
-                  className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted"
-                  style={{ textAlign: i === 2 ? 'center' : i === 3 ? 'right' : 'left' }}
-                >
-                  {h}
-                </th>
-              ))}
+              <th className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">#</th>
+              <th className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted w-12"></th>
+              <th className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">Descripción</th>
+              <th className="text-center py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">Llegó</th>
+              <th className="text-right py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">Precio</th>
             </tr>
           </thead>
           <tbody>
@@ -126,6 +122,11 @@ export default function Factura() {
               <tr key={item.id}>
                 <td className="py-2.5 border-b border-ldg-line-soft font-mono text-ldg-muted text-xs">
                   {String(item.numero).padStart(2, '0')}
+                </td>
+                <td className="py-2.5 border-b border-ldg-line-soft">
+                  {item.imagen_url
+                    ? <img src={item.imagen_url} alt="" crossOrigin="anonymous" className="w-10 h-10 object-cover rounded" style={{ background: 'var(--ldg-sunken)' }} />
+                    : <div className="w-10 h-10 rounded bg-ldg-sunken" />}
                 </td>
                 <td className="py-2.5 border-b border-ldg-line-soft text-ldg-ink">{item.articulo || `Artículo #${item.numero}`}</td>
                 <td className="py-2.5 border-b border-ldg-line-soft text-center text-ldg-muted font-mono text-xs">
