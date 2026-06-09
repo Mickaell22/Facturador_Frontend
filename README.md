@@ -20,6 +20,8 @@ Interfaz web para gestionar pedidos grupales de Temu. Responsive, funciona en ce
 - **Exportar PDF**: impresión directa desde el navegador
 - **Copiar como imagen**: captura la factura y la copia al portapapeles (para pegar en WhatsApp o Telegram)
 - **Gestión de clientes**: normalización de nombres con aliases y comisión individual
+- **Rutas públicas por token**: historial y factura del cliente sin login (para compartir por WhatsApp)
+- **Autenticación con Google** — solo el email autorizado puede acceder
 - Diseño **responsive** — funciona en celular y PC
 
 ---
@@ -39,11 +41,15 @@ frontend/
     ├── api/             # llamadas al backend
     ├── components/      # componentes reutilizables
     └── pages/
+        ├── Login.jsx            # Google OAuth
         ├── Dashboard.jsx
-        ├── PedidoDetalle.jsx
         ├── NuevoPedido.jsx
+        ├── PedidoDetalle.jsx
         ├── Clientes.jsx
-        └── Factura.jsx
+        ├── ClienteDetalle.jsx
+        ├── Factura.jsx
+        ├── FacturaPublica.jsx   # /p/:token — sin login
+        └── ClientePublico.jsx   # /c/:token — sin login
 ```
 
 ---
