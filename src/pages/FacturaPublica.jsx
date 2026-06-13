@@ -181,7 +181,7 @@ export default function FacturaPublica() {
             <div className="px-4 py-3.5 bg-ldg-surface-alt border-t border-ldg-line">
               <div className="space-y-1 text-sm font-mono mb-3">
                 <div className="flex justify-between text-ldg-ink-soft">
-                  <span>subtotal ({data.items.length} items)</span>
+                  <span>subtotal ({itemsLlegados.length} llegados)</span>
                   <span>${data.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-ldg-ink-soft">
