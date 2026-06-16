@@ -76,17 +76,23 @@
   .ldg-btn-success {
     @apply ldg-btn bg-ldg-surface text-ldg-success border border-ldg-line;
   }
-  /* Avatar palette — 5 slots, auto dark mode via CSS vars */
-  .av-0 { background: #D4B896; }
-  .av-1 { background: #A8B89F; }
-  .av-2 { background: #C4A98E; }
-  .av-3 { background: #9DA8B5; }
-  .av-4 { background: #B89C9C; }
-  .dark .av-0 { background: #8B6E48; }
-  .dark .av-1 { background: #6B7C5E; }
-  .dark .av-2 { background: #8B6F52; }
-  .dark .av-3 { background: #5E6E80; }
-  .dark .av-4 { background: #80605F; }
+  /* Avatar palette — 5 slots, auto dark mode. Degradado + anillo decorativo. */
+  .av {
+    background-size: cover;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+                0 1px 2px rgba(0, 0, 0, 0.14);
+  }
+  .av-0 { background-image: linear-gradient(135deg, #E2CBAE, #D4B896); }
+  .av-1 { background-image: linear-gradient(135deg, #BFC9B6, #A8B89F); }
+  .av-2 { background-image: linear-gradient(135deg, #D6C0AB, #C4A98E); }
+  .av-3 { background-image: linear-gradient(135deg, #B5BDC8, #9DA8B5); }
+  .av-4 { background-image: linear-gradient(135deg, #CDB6B6, #B89C9C); }
+  .dark .av-0 { background-image: linear-gradient(135deg, #A0815A, #8B6E48); }
+  .dark .av-1 { background-image: linear-gradient(135deg, #7E9070, #6B7C5E); }
+  .dark .av-2 { background-image: linear-gradient(135deg, #A08364, #8B6F52); }
+  .dark .av-3 { background-image: linear-gradient(135deg, #718295, #5E6E80); }
+  .dark .av-4 { background-image: linear-gradient(135deg, #957473, #80605F); }
 }
 
 @media print {

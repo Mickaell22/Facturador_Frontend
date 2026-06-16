@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getHistorialCliente } from '../api'
+import { initials, avatarClass } from '../utils/avatar'
 import toast from 'react-hot-toast'
-
-const AVATAR_LIGHT = ['#D4B896', '#A8B89F', '#C4A98E', '#9DA8B5', '#B89C9C']
-const AVATAR_DARK  = ['#8B6E48', '#6B7C5E', '#8B6F52', '#5E6E80', '#80605F']
-const avatarBg = () => {
-  const dark = document.documentElement.classList.contains('dark')
-  return (dark ? AVATAR_DARK : AVATAR_LIGHT)[0]
-}
-function initials(name) {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-}
 
 function StatCell({ label, value, sub, accent, last }) {
   return (
@@ -36,12 +27,24 @@ function Pill({ kind, children }) {
 }
 
 const COL = '80px 110px 72px 1fr 104px 104px 110px'
+const COL_TX = '150px 80px 120px 1fr 108px 120px'
+
+function formatFecha(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d)) return iso
+  return d.toLocaleString('es-EC', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 
 export default function ClienteDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [vista, setVista] = useState('pedidos')
 
   const copiarEnlace = () => {
     const url = `${window.location.origin}/c/${data.cliente.token_publico}`
@@ -66,6 +69,7 @@ export default function ClienteDetalle() {
   if (!data)   return null
 
   const { cliente, resumen, historial } = data
+  const transacciones = data.transacciones ?? []
 
   const totalGastado = resumen.total_gastado ?? historial.reduce((s, h) => s + h.total, 0)
   const totalItems   = historial.reduce((s, h) => s + (h.total_items ?? 0), 0)
@@ -83,7 +87,7 @@ export default function ClienteDetalle() {
       <div className="flex items-end justify-between mb-5 pb-4 border-b border-ldg-line">
         <div className="flex items-center gap-4">
           <span
-            className="w-14 h-14 rounded-full inline-flex items-center justify-center text-xl font-bold text-ldg-ink flex-shrink-0 av-0"
+            className={`w-14 h-14 rounded-full inline-flex items-center justify-center text-xl font-bold text-ldg-ink flex-shrink-0 ${avatarClass(cliente.nombre)}`}
           >
             {initials(cliente.nombre)}
           </span>
@@ -114,13 +118,94 @@ export default function ClienteDetalle() {
         />
       </div>
 
-      {/* History table */}
+      {/* Tabs */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-bold tracking-widest uppercase text-ldg-ink-soft">Historial de pedidos</h2>
-        <span className="text-[11px] text-ldg-muted font-mono">{historial.length} pedidos · ordenados por fecha</span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setVista('pedidos')}
+            className={`text-xs font-bold tracking-widest uppercase px-3 py-1.5 rounded-sm transition-colors ${
+              vista === 'pedidos'
+                ? 'text-ldg-ink bg-ldg-surface-alt'
+                : 'text-ldg-muted hover:text-ldg-ink-soft'
+            }`}
+          >
+            Pedidos
+          </button>
+          <button
+            onClick={() => setVista('transacciones')}
+            className={`text-xs font-bold tracking-widest uppercase px-3 py-1.5 rounded-sm transition-colors ${
+              vista === 'transacciones'
+                ? 'text-ldg-ink bg-ldg-surface-alt'
+                : 'text-ldg-muted hover:text-ldg-ink-soft'
+            }`}
+          >
+            Transacciones
+          </button>
+        </div>
+        <span className="text-[11px] text-ldg-muted font-mono">
+          {vista === 'pedidos'
+            ? `${historial.length} pedidos · ordenados por fecha`
+            : `${transacciones.length} pagos · más recientes primero`}
+        </span>
       </div>
 
-      {historial.length === 0 ? (
+      {vista === 'transacciones' ? (
+        transacciones.length === 0 ? (
+          <p className="text-center py-10 text-ldg-muted text-sm">Sin pagos registrados aún.</p>
+        ) : (
+          <div className="bg-ldg-surface border border-ldg-line rounded overflow-hidden">
+            {/* Table header */}
+            <div
+              className="grid gap-3 px-4 py-2.5 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted bg-ldg-surface-alt border-b border-ldg-line items-center"
+              style={{ gridTemplateColumns: COL_TX }}
+            >
+              <span>Fecha</span>
+              <span>Pedido</span>
+              <span>Tipo</span>
+              <span>Nota</span>
+              <span className="text-right">Monto</span>
+              <span className="text-right">Acumulado</span>
+            </div>
+
+            {transacciones.map((t, i) => (
+              <div
+                key={t.pago_id}
+                onClick={() => navigate(`/pedidos/${t.pedido_id}`)}
+                className={`grid gap-3 px-4 py-3 text-sm items-center cursor-pointer hover:bg-ldg-surface-alt transition-colors ${
+                  i < transacciones.length - 1 ? 'border-b border-ldg-line-soft' : ''
+                }`}
+                style={{ gridTemplateColumns: COL_TX }}
+              >
+                <span className="font-mono text-ldg-ink-soft text-xs">{formatFecha(t.fecha)}</span>
+                <span className="font-mono font-bold text-ldg-ink">
+                  #{String(t.pedido_numero ?? t.pedido_id).padStart(3, '0')}
+                </span>
+                <span className="text-xs text-ldg-ink-soft capitalize truncate">{t.tipo || '—'}</span>
+                <span className="text-xs text-ldg-muted truncate flex items-center gap-2 min-w-0">
+                  <span className="truncate">{t.notas || '—'}</span>
+                  {t.comprobante_url && (
+                    <a
+                      href={t.comprobante_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-ldg-accent hover:underline flex-shrink-0"
+                    >
+                      comprobante
+                    </a>
+                  )}
+                </span>
+                <span className="text-right font-mono font-semibold text-ldg-success">
+                  +${Number(t.monto).toFixed(2)}
+                </span>
+                <span className="text-right font-mono font-semibold text-xs text-ldg-ink-soft">
+                  ${Number(t.acumulado_pagado).toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )
+      ) : historial.length === 0 ? (
         <p className="text-center py-10 text-ldg-muted text-sm">Sin pedidos aún.</p>
       ) : (
         <div className="bg-ldg-surface border border-ldg-line rounded overflow-hidden">

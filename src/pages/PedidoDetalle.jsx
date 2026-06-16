@@ -10,16 +10,7 @@ import {
   createPago, deletePago, uploadComprobante,
   exportPedidoExcel,
 } from '../api'
-
-const AVATAR_LIGHT = ['#D4B896', '#A8B89F', '#C4A98E', '#9DA8B5', '#B89C9C']
-const AVATAR_DARK  = ['#8B6E48', '#6B7C5E', '#8B6F52', '#5E6E80', '#80605F']
-const avatarBg = (idx) => {
-  const dark = document.documentElement.classList.contains('dark')
-  return (dark ? AVATAR_DARK : AVATAR_LIGHT)[idx % 5]
-}
-function initials(name) {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-}
+import { initials, avatarClass } from '../utils/avatar'
 
 const ITEM_COL = '36px 52px 1fr 96px 56px 64px'
 
@@ -329,7 +320,7 @@ export default function PedidoDetalle() {
               <div className="grid gap-3 px-4 py-3 bg-ldg-surface-alt border-b border-ldg-line-soft items-center"
                 style={{ gridTemplateColumns: '32px 1fr auto auto' }}>
                 <span
-                  className={`w-7 h-7 rounded-full inline-flex items-center justify-center text-[11px] font-bold text-ldg-ink flex-shrink-0 av-${idx % 5}`}
+                  className={`w-7 h-7 rounded-full inline-flex items-center justify-center text-[11px] font-bold text-ldg-ink flex-shrink-0 ${avatarClass(pc.cliente_nombre)}`}
                 >
                   {initials(pc.cliente_nombre)}
                 </span>

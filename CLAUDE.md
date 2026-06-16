@@ -90,12 +90,13 @@ npm run dev
 - ImageUpload: click = enfoca para Ctrl+V, con imagen = hover muestra "cambiar"
 - FacturaPublica y Login tienen fondo blanco fijo (no dependen del Layout)
 - La comision mostrada por pedido-cliente es la historica (guardada al momento de agregar al pedido), no la comision actual del cliente
+- Avatares (bolitas con iniciales): usar `initials()` y `avatarClass()` de `src/utils/avatar.js`. El color sale de un hash del nombre, asi cada cliente conserva SU color en toda la app (no depende del indice de fila). NO redefinir paletas locales por pagina. El degradado/anillo decorativo vive en las clases `.av`/`.av-0..4` de index.css
 
 ## Patrones UI
 - SidePanel para: agregar cliente, agregar item, registrar pago, crear/editar cliente
 - Dashboard: StatCards arriba + buscador (filtra por cliente, numero o fecha) + lista de pedidos
 - PedidoDetalle: boton "Ver factura" abre /factura/:pcId; "Copiar enlace" copia /p/:token al portapapeles; "Exportar Excel" descarga el .xlsx del pedido completo
-- ClienteDetalle: ResumenCards + historial con barra de progreso de pago
+- ClienteDetalle: ResumenCards + dos pestañas: "Pedidos" (historial con barra de progreso de pago) y "Transacciones" (linea de tiempo cronologica de todos los pagos de todos los pedidos, con monto y acumulado pagado). Ambas vistas usan los datos del mismo endpoint `getHistorialCliente`
 - Los registros eliminados no aparecen en la UI (el backend los filtra); el borrado es siempre logico
 
 ## Export Excel

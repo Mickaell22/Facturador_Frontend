@@ -4,17 +4,7 @@ import { getPedidos, deletePedido, getDashboardStats, updatePedido } from '../ap
 import toast from 'react-hot-toast'
 import { usePrivacy } from '../context/PrivacyContext'
 import SidePanel from '../components/SidePanel'
-
-const AVATAR_LIGHT = ['#D4B896', '#A8B89F', '#C4A98E', '#9DA8B5', '#B89C9C']
-const AVATAR_DARK  = ['#8B6E48', '#6B7C5E', '#8B6F52', '#5E6E80', '#80605F']
-const avatarBg = (idx) => {
-  const dark = document.documentElement.classList.contains('dark')
-  return (dark ? AVATAR_DARK : AVATAR_LIGHT)[idx % 5]
-}
-
-function initials(name) {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-}
+import { initials, avatarClass } from '../utils/avatar'
 
 function StatCell({ label, value, sub, accent, dark: darkBg }) {
   return (
@@ -230,7 +220,7 @@ export default function Dashboard() {
                 {(p.clientes_nombres || []).slice(0, 3).map((n, idx) => (
                   <span
                     key={idx}
-                    className={`w-5 h-5 rounded-full flex-shrink-0 inline-flex items-center justify-center text-[9px] font-bold text-ldg-ink av-${idx % 5}`}
+                    className={`w-5 h-5 rounded-full flex-shrink-0 inline-flex items-center justify-center text-[9px] font-bold text-ldg-ink ${avatarClass(n)}`}
                   >
                     {initials(n)}
                   </span>
