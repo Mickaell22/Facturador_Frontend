@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas'
 import toast from 'react-hot-toast'
 import { getFacturaPublica } from '../api'
 import Lightbox from '../components/Lightbox'
+import { FACTURAR_SOLO_LLEGADOS } from '../config'
 
 export default function FacturaPublica() {
   const { token } = useParams()
@@ -92,9 +93,10 @@ export default function FacturaPublica() {
   const fechaFormateada = new Date(data.fecha + 'T00:00:00').toLocaleDateString('es', {
     day: '2-digit', month: 'long', year: 'numeric',
   })
-  const itemsLlegados = data.items.filter((i) => i.llegado)
+  const itemsFacturados = FACTURAR_SOLO_LLEGADOS ? data.items.filter((i) => i.llegado) : data.items
   const pagado = data.saldo <= 0
   const pct    = data.total > 0 ? Math.min(100, (data.total_pagado ?? (data.total - data.saldo)) / data.total * 100) : 100
+  const gridCols = FACTURAR_SOLO_LLEGADOS ? '36px 52px 1fr 96px 56px' : '36px 52px 1fr 96px'
 
   return (
     <>
@@ -131,18 +133,18 @@ export default function FacturaPublica() {
           <div ref={facturaRef} className="bg-ldg-surface border border-ldg-line rounded overflow-hidden mb-5">
             <div
               className="grid gap-3 px-4 py-2.5 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted bg-ldg-surface-alt border-b border-ldg-line items-center"
-              style={{ gridTemplateColumns: '36px 52px 1fr 96px 56px' }}
+              style={{ gridTemplateColumns: gridCols }}
             >
               <span>#</span><span></span><span>Artículo</span>
               <span className="text-right">Precio</span>
-              <span className="text-center">Llegó</span>
+              {FACTURAR_SOLO_LLEGADOS && <span className="text-center">Llegó</span>}
             </div>
 
-            {data.items.map((item) => (
+            {itemsFacturados.map((item) => (
               <div
                 key={item.id}
                 className="grid gap-3 px-4 py-3 items-center border-b border-ldg-line-soft last:border-b-0"
-                style={{ gridTemplateColumns: '36px 52px 1fr 96px 56px' }}
+                style={{ gridTemplateColumns: gridCols }}
               >
                 <span className="font-mono text-ldg-muted text-xs">{String(item.numero).padStart(2, '0')}</span>
                 {item.imagen_url ? (
@@ -157,7 +159,7 @@ export default function FacturaPublica() {
                   <div className="w-11 h-11 rounded bg-ldg-sunken flex items-center justify-center text-ldg-muted-soft text-sm">—</div>
                 )}
                 <div className="min-w-0">
-                  <p className={`text-sm ${!item.llegado ? 'text-ldg-muted line-through' : 'text-ldg-ink'}`}>
+                  <p className={`text-sm ${FACTURAR_SOLO_LLEGADOS && !item.llegado ? 'text-ldg-muted line-through' : 'text-ldg-ink'}`}>
                     {item.articulo || `Artículo #${item.numero}`}
                   </p>
                   {item.link && (
@@ -166,14 +168,16 @@ export default function FacturaPublica() {
                     </a>
                   )}
                 </div>
-                <span className={`text-right font-mono font-semibold text-sm ${!item.llegado ? 'text-ldg-muted-soft' : 'text-ldg-ink'}`}>
+                <span className={`text-right font-mono font-semibold text-sm ${FACTURAR_SOLO_LLEGADOS && !item.llegado ? 'text-ldg-muted-soft' : 'text-ldg-ink'}`}>
                   ${item.precio.toFixed(2)}
                 </span>
-                <span className="text-center">
-                  {item.llegado
-                    ? <span className="inline-block w-[18px] h-[18px] rounded-full bg-ldg-success text-ldg-on-ink text-[11px] font-bold leading-[18px] text-center">✓</span>
-                    : <span className="inline-block w-[18px] h-[18px] rounded-full border-[1.5px] border-dashed border-ldg-muted-soft" />}
-                </span>
+                {FACTURAR_SOLO_LLEGADOS && (
+                  <span className="text-center">
+                    {item.llegado
+                      ? <span className="inline-block w-[18px] h-[18px] rounded-full bg-ldg-success text-ldg-on-ink text-[11px] font-bold leading-[18px] text-center">✓</span>
+                      : <span className="inline-block w-[18px] h-[18px] rounded-full border-[1.5px] border-dashed border-ldg-muted-soft" />}
+                  </span>
+                )}
               </div>
             ))}
 
@@ -181,11 +185,11 @@ export default function FacturaPublica() {
             <div className="px-4 py-3.5 bg-ldg-surface-alt border-t border-ldg-line">
               <div className="space-y-1 text-sm font-mono mb-3">
                 <div className="flex justify-between text-ldg-ink-soft">
-                  <span>subtotal ({itemsLlegados.length} llegados)</span>
+                  <span>subtotal ({itemsFacturados.length} {FACTURAR_SOLO_LLEGADOS ? 'llegados' : 'items'})</span>
                   <span>${data.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-ldg-ink-soft">
-                  <span>comisión ({itemsLlegados.length} × ${data.cliente_comision.toFixed(2)})</span>
+                  <span>comisión ({itemsFacturados.length} × ${data.cliente_comision.toFixed(2)})</span>
                   <span>${data.comision.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-ldg-ink font-bold pt-1.5 mt-1 border-t border-ldg-line text-base">

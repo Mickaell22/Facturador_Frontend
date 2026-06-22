@@ -78,6 +78,11 @@ npm run dev
 - `VITE_API_URL` apunta al backend en produccion: `https://facturadorbackend-production.up.railway.app`
 - En modo serverless el frontend siempre esta disponible; los cold starts afectan solo al backend
 
+## Mecanica de "llego" (feature flag)
+- `src/config.js` exporta `FACTURAR_SOLO_LLEGADOS`. En `false` (actual) la factura muestra y cuenta TODOS los items y oculta la columna "Llego"; en `true` solo muestra/cuenta los llegados
+- Lo consumen `Factura.jsx` y `FacturaPublica.jsx` (lista de items, columna "Llego", tachado de no-llegados y textos de subtotal/comision)
+- Debe ir SIEMPRE en sincronia con `FACTURAR_SOLO_LLEGADOS` del backend (`Facturador_Backend/utils/facturacion.py`), porque el backend ya manda los totales calculados
+
 ## Convenciones
 - Sin emojis en codigo fuente
 - Sin valores hardcodeados

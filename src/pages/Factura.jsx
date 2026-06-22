@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import toast from 'react-hot-toast'
 import { getPedido } from '../api'
+import { FACTURAR_SOLO_LLEGADOS } from '../config'
 
 export default function Factura() {
   const { pcId } = useParams()
@@ -52,7 +53,7 @@ export default function Factura() {
   const fechaFormateada = new Date(pedido.fecha + 'T00:00:00').toLocaleDateString('es', {
     day: '2-digit', month: 'long', year: 'numeric',
   })
-  const itemsLlegados = pc.items.filter((i) => i.llegado)
+  const itemsFacturados = FACTURAR_SOLO_LLEGADOS ? pc.items.filter((i) => i.llegado) : pc.items
   const pagado = Number(pc.saldo) <= 0
 
   return (
@@ -113,12 +114,14 @@ export default function Factura() {
               <th className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">#</th>
               <th className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted w-12"></th>
               <th className="text-left py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">Descripción</th>
-              <th className="text-center py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">Llegó</th>
+              {FACTURAR_SOLO_LLEGADOS && (
+                <th className="text-center py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">Llegó</th>
+              )}
               <th className="text-right py-2 border-b border-ldg-ink text-[10px] font-semibold tracking-widest uppercase text-ldg-muted">Precio</th>
             </tr>
           </thead>
           <tbody>
-            {pc.items.map((item) => (
+            {itemsFacturados.map((item) => (
               <tr key={item.id}>
                 <td className="py-2.5 border-b border-ldg-line-soft font-mono text-ldg-muted text-xs">
                   {String(item.numero).padStart(2, '0')}
@@ -129,9 +132,11 @@ export default function Factura() {
                     : <div className="w-10 h-10 rounded bg-ldg-sunken" />}
                 </td>
                 <td className="py-2.5 border-b border-ldg-line-soft text-ldg-ink">{item.articulo || `Artículo #${item.numero}`}</td>
-                <td className="py-2.5 border-b border-ldg-line-soft text-center text-ldg-muted font-mono text-xs">
-                  {item.llegado ? '✓' : '—'}
-                </td>
+                {FACTURAR_SOLO_LLEGADOS && (
+                  <td className="py-2.5 border-b border-ldg-line-soft text-center text-ldg-muted font-mono text-xs">
+                    {item.llegado ? '✓' : '—'}
+                  </td>
+                )}
                 <td className="py-2.5 border-b border-ldg-line-soft text-right font-mono font-semibold text-ldg-ink">
                   ${Number(item.precio).toFixed(2)}
                 </td>
@@ -144,11 +149,11 @@ export default function Factura() {
         <div className="flex justify-end mb-7">
           <div className="w-72 text-sm font-mono space-y-1">
             <div className="flex justify-between text-ldg-ink-soft py-1">
-              <span>Subtotal ({itemsLlegados.length} llegados)</span>
+              <span>Subtotal ({itemsFacturados.length} {FACTURAR_SOLO_LLEGADOS ? 'llegados' : 'items'})</span>
               <span>${Number(pc.subtotal).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-ldg-ink-soft py-1">
-              <span>Comisión ({itemsLlegados.length} × ${Number(pc.cliente_comision).toFixed(2)})</span>
+              <span>Comisión ({itemsFacturados.length} × ${Number(pc.cliente_comision).toFixed(2)})</span>
               <span>${Number(pc.comision).toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-base py-2 border-t border-b border-ldg-ink text-ldg-ink">
