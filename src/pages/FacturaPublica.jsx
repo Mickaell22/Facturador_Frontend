@@ -4,7 +4,6 @@ import html2canvas from 'html2canvas'
 import toast from 'react-hot-toast'
 import { getFacturaPublica } from '../api'
 import Lightbox from '../components/Lightbox'
-import { FACTURAR_SOLO_LLEGADOS } from '../config'
 
 export default function FacturaPublica() {
   const { token } = useParams()
@@ -93,10 +92,10 @@ export default function FacturaPublica() {
   const fechaFormateada = new Date(data.fecha + 'T00:00:00').toLocaleDateString('es', {
     day: '2-digit', month: 'long', year: 'numeric',
   })
-  const itemsFacturados = FACTURAR_SOLO_LLEGADOS ? data.items.filter((i) => i.llegado) : data.items
+  const itemsFacturados = data.items.filter((i) => i.activo)
   const pagado = data.saldo <= 0
   const pct    = data.total > 0 ? Math.min(100, (data.total_pagado ?? (data.total - data.saldo)) / data.total * 100) : 100
-  const gridCols = FACTURAR_SOLO_LLEGADOS ? '36px 52px 1fr 96px 56px' : '36px 52px 1fr 96px'
+  const gridCols = '36px 52px 1fr 96px'
 
   return (
     <>
@@ -137,7 +136,6 @@ export default function FacturaPublica() {
             >
               <span>#</span><span></span><span>Artículo</span>
               <span className="text-right">Precio</span>
-              {FACTURAR_SOLO_LLEGADOS && <span className="text-center">Llegó</span>}
             </div>
 
             {itemsFacturados.map((item) => (
@@ -159,7 +157,7 @@ export default function FacturaPublica() {
                   <div className="w-11 h-11 rounded bg-ldg-sunken flex items-center justify-center text-ldg-muted-soft text-sm">—</div>
                 )}
                 <div className="min-w-0">
-                  <p className={`text-sm ${FACTURAR_SOLO_LLEGADOS && !item.llegado ? 'text-ldg-muted line-through' : 'text-ldg-ink'}`}>
+                  <p className="text-sm text-ldg-ink">
                     {item.articulo || `Artículo #${item.numero}`}
                   </p>
                   {item.link && (
@@ -168,16 +166,9 @@ export default function FacturaPublica() {
                     </a>
                   )}
                 </div>
-                <span className={`text-right font-mono font-semibold text-sm ${FACTURAR_SOLO_LLEGADOS && !item.llegado ? 'text-ldg-muted-soft' : 'text-ldg-ink'}`}>
+                <span className="text-right font-mono font-semibold text-sm text-ldg-ink">
                   ${item.precio.toFixed(2)}
                 </span>
-                {FACTURAR_SOLO_LLEGADOS && (
-                  <span className="text-center">
-                    {item.llegado
-                      ? <span className="inline-block w-[18px] h-[18px] rounded-full bg-ldg-success text-ldg-on-ink text-[11px] font-bold leading-[18px] text-center">✓</span>
-                      : <span className="inline-block w-[18px] h-[18px] rounded-full border-[1.5px] border-dashed border-ldg-muted-soft" />}
-                  </span>
-                )}
               </div>
             ))}
 
@@ -185,7 +176,7 @@ export default function FacturaPublica() {
             <div className="px-4 py-3.5 bg-ldg-surface-alt border-t border-ldg-line">
               <div className="space-y-1 text-sm font-mono mb-3">
                 <div className="flex justify-between text-ldg-ink-soft">
-                  <span>subtotal ({itemsFacturados.length} {FACTURAR_SOLO_LLEGADOS ? 'llegados' : 'items'})</span>
+                  <span>subtotal ({itemsFacturados.length} items)</span>
                   <span>${data.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-ldg-ink-soft">

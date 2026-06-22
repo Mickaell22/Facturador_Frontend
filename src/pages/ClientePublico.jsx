@@ -116,7 +116,7 @@ export default function ClientePublico() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {h.items_llegados} de {h.total_items} articulos llegados
+                      {h.items_activos} de {h.total_items} articulos activos
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 ml-2">

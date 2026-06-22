@@ -78,10 +78,10 @@ npm run dev
 - `VITE_API_URL` apunta al backend en produccion: `https://facturadorbackend-production.up.railway.app`
 - En modo serverless el frontend siempre esta disponible; los cold starts afectan solo al backend
 
-## Mecanica de "llego" (feature flag)
-- `src/config.js` exporta `FACTURAR_SOLO_LLEGADOS`. En `false` (actual) la factura muestra y cuenta TODOS los items y oculta la columna "Llego"; en `true` solo muestra/cuenta los llegados
-- Lo consumen `Factura.jsx` y `FacturaPublica.jsx` (lista de items, columna "Llego", tachado de no-llegados y textos de subtotal/comision)
-- Debe ir SIEMPRE en sincronia con `FACTURAR_SOLO_LLEGADOS` del backend (`Facturador_Backend/utils/facturacion.py`), porque el backend ya manda los totales calculados
+## Items activos / inactivos
+- Cada item tiene `item.activo` (bool). En PedidoDetalle el boton circular de cada item lo activa/desactiva (`toggleActivo`); los inactivos se ven tachados/atenuados pero siguen en la lista
+- Las facturas (`Factura.jsx`, `FacturaPublica.jsx`) muestran SOLO los items activos (`items.filter(i => i.activo)`); los inactivos no aparecen y no suman al total (el backend ya manda los totales calculados solo con activos)
+- El historial de cliente usa `items_activos` del backend (antes `items_llegados`)
 
 ## Convenciones
 - Sin emojis en codigo fuente

@@ -239,7 +239,7 @@ export default function ClienteDetalle() {
                 >
                   <span className="font-mono font-bold text-ldg-ink">#{String(h.pedido_numero ?? h.pedido_id).padStart(3, '0')}</span>
                   <span className="font-mono text-ldg-ink-soft text-xs">{h.fecha}</span>
-                  <span className="text-right font-mono text-ldg-ink-soft text-xs">{h.total_items ?? h.items_llegados ?? '—'}</span>
+                  <span className="text-right font-mono text-ldg-ink-soft text-xs">{h.total_items ?? h.items_activos ?? '—'}</span>
                   <div className="h-1 bg-ldg-line-soft rounded-full overflow-hidden mx-2">
                     <div className={`h-full rounded-full ${pagado ? 'bg-ldg-success' : 'bg-ldg-accent'}`} style={{ width: `${pct}%` }} />
                   </div>

@@ -149,8 +149,8 @@ export default function PedidoDetalle() {
     } catch { toast.error('Error al agregar item') }
   }
 
-  const toggleLlegado = async (pc, item) => {
-    try { await updateItem(pc.id, item.id, { llegado: !item.llegado }); cargar() }
+  const toggleActivo = async (pc, item) => {
+    try { await updateItem(pc.id, item.id, { activo: !item.activo }); cargar() }
     catch { toast.error('Error al actualizar item') }
   }
 
@@ -349,7 +349,7 @@ export default function PedidoDetalle() {
                         onClick={() => { setEditandoComision(pc.cliente_id); setComisionInput(String(Number(pc.cliente_comision))) }}
                         className="text-[11px] font-mono text-ldg-muted hover:text-ldg-accent transition-colors"
                       >
-                        comisión ${Number(pc.cliente_comision).toFixed(2)}/item · {pc.items.length} items · {pc.items.filter(i => i.llegado).length} llegados
+                        comisión ${Number(pc.cliente_comision).toFixed(2)}/item · {pc.items.length} items · {pc.items.filter(i => i.activo).length} activos
                       </button>
                     )}
                   </div>
@@ -427,7 +427,7 @@ export default function PedidoDetalle() {
                   >
                     <span>#</span><span></span><span>Artículo</span>
                     <span className="text-right">Precio</span>
-                    <span className="text-center">Llegó</span><span></span>
+                    <span className="text-center">Activo</span><span></span>
                   </div>
 
                   {/* Items */}
@@ -447,25 +447,25 @@ export default function PedidoDetalle() {
                         onDelete={item.imagen_url ? () => eliminarImagenItem(pc, item.id) : undefined}
                       />
                       <div className="min-w-0">
-                        <p className="text-sm text-ldg-ink truncate">{item.articulo || <span className="text-ldg-muted">Item #{item.numero}</span>}</p>
+                        <p className={`text-sm truncate ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted line-through'}`}>{item.articulo || <span className="text-ldg-muted">Item #{item.numero}</span>}</p>
                         {item.link && (
                           <a href={item.link} target="_blank" rel="noreferrer" className="text-[11px] text-ldg-accent hover:underline truncate block">
                             ↗ ver enlace
                           </a>
                         )}
                       </div>
-                      <span className="text-right font-mono font-semibold text-sm text-ldg-ink">${Number(item.precio).toFixed(2)}</span>
+                      <span className={`text-right font-mono font-semibold text-sm ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted-soft line-through'}`}>${Number(item.precio).toFixed(2)}</span>
                       <span className="text-center">
                         <button
-                          onClick={() => toggleLlegado(pc, item)}
-                          title={item.llegado ? 'Llegó' : 'Marcar como llegado'}
+                          onClick={() => toggleActivo(pc, item)}
+                          title={item.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}
                           className={`w-[18px] h-[18px] rounded-full inline-flex items-center justify-center text-[11px] font-bold transition-colors ${
-                            item.llegado
+                            item.activo
                               ? 'bg-ldg-success text-ldg-on-ink'
                               : 'border-[1.5px] border-dashed border-ldg-muted-soft text-transparent'
                           }`}
                         >
-                          {item.llegado ? '✓' : '·'}
+                          {item.activo ? '✓' : '·'}
                         </button>
                       </span>
                       <div className="flex items-center justify-end gap-2 text-[11px] text-ldg-muted">
