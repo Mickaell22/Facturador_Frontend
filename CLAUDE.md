@@ -101,6 +101,7 @@ npm run dev
 - SidePanel para: agregar cliente, agregar item, registrar pago, crear/editar cliente
 - Dashboard: StatCards arriba + buscador (filtra por cliente, numero o fecha) + lista de pedidos
 - PedidoDetalle: boton "Ver factura" abre /factura/:pcId; "Copiar enlace" copia /p/:token al portapapeles; "Exportar Excel" descarga el .xlsx del pedido completo
+- PedidoDetalle, mover artículos: cada cliente con items tiene un boton "mover ítems" (distinto de "mover", que mueve al cliente entero a otro pedido). Abre un SidePanel con checkboxes por artículo + select de pedido destino (default este pedido; al elegir otro se hace `getPedido` para traer sus clientes) + select de cliente destino + input de confirmacion donde hay que teclear `MOVER` (anti-misclick estilo GitHub; el boton queda disabled hasta que coincida). Llama a `moverItems(pcId, itemIds, destinoPcId)`. El destino se elige entre PedidoCliente ya existentes (no se crea cliente nuevo desde aqui)
 - ClienteDetalle: ResumenCards + dos pestañas: "Pedidos" (historial con barra de progreso de pago) y "Transacciones" (linea de tiempo cronologica de todos los pagos de todos los pedidos, con monto y acumulado pagado). Ambas vistas usan los datos del mismo endpoint `getHistorialCliente`
 - Los registros eliminados no aparecen en la UI (el backend los filtra); el borrado es siempre logico
 

@@ -54,6 +54,8 @@ export const updateItem = (pcId, itemId, data) => api.put(`/pedido-clientes/${pc
 export const deleteItem = (pcId, itemId) => api.delete(`/pedido-clientes/${pcId}/items/${itemId}`)
 export const deleteItemImagen = (pcId, itemId) =>
   api.delete(`/pedido-clientes/${pcId}/items/${itemId}/imagen`)
+export const moverItems = (pcId, itemIds, destinoPcId) =>
+  api.post(`/pedido-clientes/${pcId}/items/mover`, { item_ids: itemIds, destino_pc_id: destinoPcId })
 
 export const uploadItemImagen = (pcId, itemId, file) => {
   const form = new FormData()

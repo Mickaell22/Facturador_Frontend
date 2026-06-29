@@ -6,7 +6,7 @@ import ImageUpload from '../components/ImageUpload'
 import {
   getPedido, getPedidos, getClientes, addClienteToPedido, removeClienteFromPedido,
   updateComisionPedidoCliente, moverClientePedido,
-  createItem, updateItem, deleteItem, uploadItemImagen, deleteItemImagen,
+  createItem, updateItem, deleteItem, uploadItemImagen, deleteItemImagen, moverItems,
   createPago, deletePago, uploadComprobante,
   exportPedidoExcel,
 } from '../api'
@@ -48,6 +48,12 @@ export default function PedidoDetalle() {
   const [panelMover, setPanelMover] = useState(null)
   const [pedidos, setPedidos] = useState([])
   const [pedidoDestinoId, setPedidoDestinoId] = useState('')
+  const [panelMoverItems, setPanelMoverItems] = useState(null)
+  const [itemsSeleccionados, setItemsSeleccionados] = useState(new Set())
+  const [moverDestPedidoId, setMoverDestPedidoId] = useState('')
+  const [moverDestPedido, setMoverDestPedido] = useState(null)
+  const [moverDestPcId, setMoverDestPcId] = useState('')
+  const [confirmMover, setConfirmMover] = useState('')
 
   const handleExport = async () => {
     try {
@@ -104,6 +110,48 @@ export default function PedidoDetalle() {
       toast.success('Cliente movido al pedido destino')
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al mover cliente')
+    }
+  }
+
+  const abrirMoverItems = (pc) => {
+    setPanelMoverItems(pc)
+    setItemsSeleccionados(new Set())
+    setMoverDestPedidoId(String(id))
+    setMoverDestPedido(pedido)
+    setMoverDestPcId('')
+    setConfirmMover('')
+  }
+
+  const cambiarPedidoDestino = async (destId) => {
+    setMoverDestPedidoId(destId)
+    setMoverDestPcId('')
+    if (destId === String(id)) { setMoverDestPedido(pedido); return }
+    try {
+      const res = await getPedido(destId)
+      setMoverDestPedido(res.data)
+    } catch {
+      toast.error('Error al cargar el pedido destino')
+      setMoverDestPedido(null)
+    }
+  }
+
+  const toggleSeleccionItem = (itemId) => setItemsSeleccionados((prev) => {
+    const next = new Set(prev)
+    next.has(itemId) ? next.delete(itemId) : next.add(itemId)
+    return next
+  })
+
+  const ejecutarMoverItems = async () => {
+    if (itemsSeleccionados.size === 0) return toast.error('Selecciona al menos un artículo')
+    if (!moverDestPcId) return toast.error('Selecciona el cliente destino')
+    if (confirmMover.trim().toUpperCase() !== 'MOVER') return toast.error('Escribe MOVER para confirmar')
+    try {
+      const res = await moverItems(panelMoverItems.id, [...itemsSeleccionados], parseInt(moverDestPcId))
+      setPanelMoverItems(null)
+      cargar()
+      toast.success(`${res.data.movidos} artículo(s) movido(s)`)
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al mover artículos')
     }
   }
 
@@ -404,6 +452,14 @@ export default function PedidoDetalle() {
                   >
                     mover
                   </button>
+                  {pc.items.length > 0 && (
+                    <button
+                      onClick={() => abrirMoverItems(pc)}
+                      className="text-ldg-muted hover:text-ldg-accent transition-colors"
+                    >
+                      mover ítems
+                    </button>
+                  )}
                   <button onClick={() => quitarCliente(pc.cliente_id)} className="text-ldg-muted hover:text-ldg-danger transition-colors">quitar</button>
                   <button
                     onClick={() => setColapsados((prev) => {
@@ -750,6 +806,111 @@ export default function PedidoDetalle() {
               className="ldg-btn-primary w-full py-2 disabled:opacity-40"
             >
               Mover cliente
+            </button>
+          </div>
+        )}
+      </SidePanel>
+
+      {/* Panel: mover artículos sueltos a otro cliente/pedido */}
+      <SidePanel
+        open={!!panelMoverItems}
+        onClose={() => setPanelMoverItems(null)}
+        title={panelMoverItems ? `Mover artículos — ${panelMoverItems.cliente_nombre}` : ''}
+      >
+        {panelMoverItems && (
+          <div className="space-y-4">
+            <p className="text-xs text-ldg-muted leading-relaxed">
+              Selecciona los artículos y el cliente destino. Se trasladan tal cual (precio, imagen y estado activo se conservan); los pagos no se mueven.
+            </p>
+
+            {/* Selección de artículos */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold tracking-widest uppercase text-ldg-muted">
+                  Artículos ({itemsSeleccionados.size}/{panelMoverItems.items.length})
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setItemsSeleccionados(
+                    itemsSeleccionados.size === panelMoverItems.items.length
+                      ? new Set()
+                      : new Set(panelMoverItems.items.map((i) => i.id))
+                  )}
+                  className="text-[11px] text-ldg-accent hover:underline"
+                >
+                  {itemsSeleccionados.size === panelMoverItems.items.length ? 'Ninguno' : 'Todos'}
+                </button>
+              </div>
+              <div className="border border-ldg-line rounded divide-y divide-ldg-line-soft max-h-60 overflow-y-auto">
+                {panelMoverItems.items.map((item) => (
+                  <label key={item.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-ldg-surface-alt">
+                    <input
+                      type="checkbox"
+                      checked={itemsSeleccionados.has(item.id)}
+                      onChange={() => toggleSeleccionItem(item.id)}
+                      className="accent-ldg-accent"
+                    />
+                    <span className="font-mono text-[11px] text-ldg-muted">{String(item.numero).padStart(2, '0')}</span>
+                    <span className={`flex-1 text-sm truncate ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted line-through'}`}>
+                      {item.articulo || `Item #${item.numero}`}
+                    </span>
+                    <span className="font-mono text-xs text-ldg-ink-soft">${Number(item.precio).toFixed(2)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Pedido destino */}
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Pedido destino</label>
+              <select value={moverDestPedidoId} onChange={(e) => cambiarPedidoDestino(e.target.value)} className="ldg-select w-full">
+                {pedidos.map((p) => {
+                  const fecha = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })
+                  return (
+                    <option key={p.id} value={p.id}>
+                      #{String(p.numero ?? p.id).padStart(3, '0')} — {fecha}{p.id === parseInt(id) ? ' (este pedido)' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            {/* Cliente destino */}
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Cliente destino</label>
+              <select value={moverDestPcId} onChange={(e) => setMoverDestPcId(e.target.value)} className="ldg-select w-full">
+                <option value="">Seleccionar cliente...</option>
+                {(moverDestPedido?.clientes || [])
+                  .filter((c) => c.id !== panelMoverItems.id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.cliente_nombre}</option>
+                  ))}
+              </select>
+              {(moverDestPedido?.clientes || []).filter((c) => c.id !== panelMoverItems.id).length === 0 && (
+                <p className="text-[11px] text-ldg-muted mt-1">No hay otro cliente en este pedido. Elige otro pedido o agrega un cliente primero.</p>
+              )}
+            </div>
+
+            {/* Confirmación anti-misclick */}
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">
+                Escribe <span className="font-mono text-ldg-danger">MOVER</span> para confirmar
+              </label>
+              <input
+                type="text"
+                value={confirmMover}
+                onChange={(e) => setConfirmMover(e.target.value)}
+                placeholder="MOVER"
+                className="ldg-input font-mono"
+              />
+            </div>
+
+            <button
+              onClick={ejecutarMoverItems}
+              disabled={itemsSeleccionados.size === 0 || !moverDestPcId || confirmMover.trim().toUpperCase() !== 'MOVER'}
+              className="ldg-btn-primary w-full py-2 disabled:opacity-40"
+            >
+              Mover {itemsSeleccionados.size || ''} artículo(s)
             </button>
           </div>
         )}
