@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { usePrivacy } from '../context/PrivacyContext'
 import SidePanel from '../components/SidePanel'
 import { initials, avatarClass } from '../utils/avatar'
+import { useConfirm } from '../context/ConfirmContext'
 
 function StatCell({ label, value, sub, accent, dark: darkBg }) {
   return (
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const { privado, revelar } = usePrivacy()
   const oculto = '••••'
   const navigate = useNavigate()
+  const confirm = useConfirm()
 
   const cargar = async () => {
     try {
@@ -81,7 +83,11 @@ export default function Dashboard() {
 
   const handleDelete = async (id, e) => {
     e.stopPropagation()
-    if (!confirm('¿Eliminar este pedido?')) return
+    if (!await confirm({
+      title: 'Eliminar pedido',
+      message: '¿Seguro que quieres eliminar este pedido? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+    })) return
     try {
       await deletePedido(id)
       toast.success('Pedido eliminado')

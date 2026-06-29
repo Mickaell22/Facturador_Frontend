@@ -11,6 +11,7 @@ import {
   exportPedidoExcel,
 } from '../api'
 import { initials, avatarClass } from '../utils/avatar'
+import { useConfirm } from '../context/ConfirmContext'
 
 const ITEM_COL = '36px 52px 1fr 96px 56px 64px'
 
@@ -26,6 +27,7 @@ function StatCell({ label, value, accent, last }) {
 export default function PedidoDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const confirm = useConfirm()
 
   const [pedido, setPedido] = useState(null)
   const [clientes, setClientes] = useState([])
@@ -95,7 +97,11 @@ export default function PedidoDetalle() {
   }
 
   const quitarCliente = async (clienteId) => {
-    if (!confirm('¿Quitar cliente del pedido? Se eliminarán sus items y pagos.')) return
+    if (!await confirm({
+      title: 'Quitar cliente del pedido',
+      message: 'Se eliminarán sus ítems y pagos. Esta acción no se puede deshacer.',
+      confirmText: 'Quitar cliente',
+    })) return
     try { await removeClienteFromPedido(id, clienteId); cargar() }
     catch { toast.error('Error al quitar cliente') }
   }
@@ -203,7 +209,11 @@ export default function PedidoDetalle() {
   }
 
   const eliminarItem = async (pc, itemId) => {
-    if (!confirm('¿Eliminar item?')) return
+    if (!await confirm({
+      title: 'Eliminar ítem',
+      message: '¿Seguro que quieres eliminar este ítem?',
+      confirmText: 'Eliminar',
+    })) return
     try { await deleteItem(pc.id, itemId); cargar() }
     catch { toast.error('Error al eliminar item') }
   }
@@ -231,7 +241,11 @@ export default function PedidoDetalle() {
   }
 
   const eliminarPago = async (pc, pagoId) => {
-    if (!confirm('¿Eliminar pago?')) return
+    if (!await confirm({
+      title: 'Eliminar pago',
+      message: '¿Seguro que quieres eliminar este pago?',
+      confirmText: 'Eliminar',
+    })) return
     try { await deletePago(pc.id, pagoId); cargar() }
     catch { toast.error('Error al eliminar pago') }
   }

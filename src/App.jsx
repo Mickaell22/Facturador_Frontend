@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { PrivacyProvider } from './context/PrivacyContext'
+import { ConfirmProvider } from './context/ConfirmContext'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Factura from './pages/Factura'
@@ -18,6 +19,7 @@ function PrivateRoute({ children }) {
 export default function App() {
   return (
     <PrivacyProvider>
+    <ConfirmProvider>
     <Routes>
       <Route path="/login" element={<Login />} />
 
@@ -51,6 +53,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ConfirmProvider>
     </PrivacyProvider>
   )
 }

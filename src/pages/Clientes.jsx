@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import SidePanel from '../components/SidePanel'
 import { getClientes, createCliente, updateCliente, deleteCliente, addAlias, deleteAlias } from '../api'
 import { initials, avatarClass } from '../utils/avatar'
+import { useConfirm } from '../context/ConfirmContext'
 
 const COL = '40px 1fr 100px 80px 72px'
 const formVacio = { nombre: '', comision_por_item: '0.50' }
@@ -19,6 +20,7 @@ export default function Clientes() {
   const [filtroSaldo, setFiltroSaldo] = useState('todos')
   const [orden, setOrden] = useState('az')
   const navigate = useNavigate()
+  const confirm = useConfirm()
 
   const cargar = async () => {
     try {
@@ -52,7 +54,11 @@ export default function Clientes() {
   }
 
   const handleEliminar = async (id) => {
-    if (!confirm('¿Eliminar cliente? Solo es posible si no tiene pedidos asociados.')) return
+    if (!await confirm({
+      title: 'Eliminar cliente',
+      message: 'Solo es posible si no tiene pedidos asociados. Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+    })) return
     try { await deleteCliente(id); toast.success('Cliente eliminado'); cargar() }
     catch (err) { toast.error(err.response?.data?.detail || 'Error al eliminar') }
   }
