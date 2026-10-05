@@ -17,7 +17,19 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <App />
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'var(--ldg-surface)',
+            color: 'var(--ldg-ink)',
+            border: '1px solid var(--ldg-line)',
+            fontSize: '14px',
+          },
+          success: { iconTheme: { primary: 'var(--ldg-success)', secondary: 'var(--ldg-surface)' } },
+          error:   { iconTheme: { primary: 'var(--ldg-danger)',  secondary: 'var(--ldg-surface)' } },
+        }}
+      />
     </BrowserRouter>
   </React.StrictMode>,
 )

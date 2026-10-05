@@ -40,13 +40,12 @@ export function ConfirmProvider({ children }) {
 function ConfirmDialog({ state, onCancel, onConfirm }) {
   useEffect(() => {
     if (!state) return
-    const h = (e) => {
-      if (e.key === 'Escape') onCancel()
-      if (e.key === 'Enter') onConfirm()
-    }
+    // Solo Escape global. Enter lo maneja el boton enfocado: asi Tab + Enter
+    // sobre "Cancelar" cancela en vez de confirmar.
+    const h = (e) => { if (e.key === 'Escape') onCancel() }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [state, onCancel, onConfirm])
+  }, [state, onCancel])
 
   if (!state) return null
   const { title, message, confirmText, cancelText, danger } = state
@@ -60,6 +59,8 @@ function ConfirmDialog({ state, onCancel, onConfirm }) {
       <div
         role="alertdialog"
         aria-modal="true"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-msg"
         className="relative w-full max-w-sm bg-ldg-surface border border-ldg-line rounded-xl shadow-2xl p-5 animate-ldg-pop"
       >
         <div className="flex items-start gap-3">
@@ -74,8 +75,8 @@ function ConfirmDialog({ state, onCancel, onConfirm }) {
             !
           </span>
           <div className="min-w-0">
-            <h2 className="font-semibold text-ldg-ink text-sm tracking-wide">{title}</h2>
-            <p className="mt-1 text-sm text-ldg-muted leading-relaxed">{message}</p>
+            <h2 id="confirm-title" className="font-semibold text-ldg-ink text-sm tracking-wide">{title}</h2>
+            <p id="confirm-msg" className="mt-1 text-sm text-ldg-muted leading-relaxed">{message}</p>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">

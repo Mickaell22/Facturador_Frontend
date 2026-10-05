@@ -16,6 +16,8 @@ export default function useDarkMode() {
       root.classList.remove('dark')
       localStorage.setItem('theme', 'light')
     }
+    document.querySelector('meta[name=theme-color]')
+      ?.setAttribute('content', getComputedStyle(root).getPropertyValue('--ldg-bg').trim())
   }, [dark])
 
   return [dark, setDark]

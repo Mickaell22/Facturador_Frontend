@@ -3,6 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#F6F1E8" />
+    <script>
+      // Aplica el tema antes del primer render para evitar el destello claro.
+      // Las vistas publicas (/p/, /c/) son siempre claras: las abre el cliente final.
+      (function () {
+        if (/^\/(p|c)\//.test(location.pathname)) return
+        var t = null
+        try { t = localStorage.getItem('theme') } catch (e) {}
+        var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
+        if (dark) {
+          document.documentElement.classList.add('dark')
+          document.querySelector('meta[name=theme-color]').setAttribute('content', '#1A1714')
+        }
+      })()
+    </script>
     <title>%VITE_APP_TITLE%</title>
     <meta name="description" content="Resumen de pedido — %VITE_APP_TITLE%" />
     <meta property="og:type" content="website" />

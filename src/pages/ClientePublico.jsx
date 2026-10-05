@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import html2canvas from 'html2canvas'
 import toast from 'react-hot-toast'
 import { getHistorialClientePublico } from '../api'
+import { copiarImagen } from '../utils/copiarImagen'
+import { fechaCorta } from '../utils/fecha'
 
-function ResumenCard({ label, value, color = 'text-gray-800' }) {
+function ResumenCard({ label, value, color = 'text-ldg-ink' }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-      <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-xl font-bold ${color}`}>{value}</p>
+    <div className="bg-ldg-surface border border-ldg-line rounded p-4">
+      <p className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">{label}</p>
+      <p className={`text-xl font-bold font-mono ${color}`}>{value}</p>
     </div>
   )
 }
@@ -27,7 +28,7 @@ export default function ClientePublico() {
         setData(res)
       } catch (err) {
         if (err.response?.status === 404) setNoValido(true)
-        else toast.error('Error al cargar historial')
+        else toast.error('No se pudo cargar el historial. Revisa tu conexión.')
       } finally {
         setLoading(false)
       }
@@ -35,127 +36,112 @@ export default function ClientePublico() {
     cargar()
   }, [token])
 
-  const handleImprimir = () => window.print()
-
-  const handleCopiarImagen = async () => {
-    if (!contenidoRef.current) return
-    try {
-      const canvas = await html2canvas(contenidoRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      canvas.toBlob(async (blob) => {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-        toast.success('Imagen copiada al portapapeles')
-      })
-    } catch {
-      toast.error('No se pudo copiar la imagen')
-    }
-  }
-
-  if (loading) return <p className="text-center py-10 text-gray-400">Cargando...</p>
-  if (noValido) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <p className="text-gray-500">Este enlace no es valido o ya no existe.</p>
-    </div>
+  const Centro = ({ children }) => (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-ldg-bg px-6 text-center">{children}</div>
   )
-  if (!data) return null
+
+  if (loading) return <Centro><p className="text-ldg-muted text-sm" role="status">Cargando historial…</p></Centro>
+  if (noValido) return <Centro><p className="text-ldg-muted text-sm">Este enlace no es válido o ya no existe. Pide a quien te lo envió un enlace nuevo.</p></Centro>
+  if (!data) return (
+    <Centro>
+      <p className="text-ldg-muted text-sm">No se pudo cargar el historial.</p>
+      <button onClick={() => window.location.reload()} className="ldg-btn-secondary">Reintentar</button>
+    </Centro>
+  )
 
   const { cliente, resumen, historial } = data
+  const debe = resumen.total_pendiente > 0
 
   return (
-    <>
-    <div className="min-h-screen bg-gray-100 py-6 px-4">
-      <div className="no-print flex gap-3 justify-center mb-6">
-        <button onClick={handleImprimir} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700">
-          Imprimir / PDF
-        </button>
-        <button onClick={handleCopiarImagen} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-          Copiar imagen
-        </button>
-      </div>
+    <div className="min-h-screen bg-ldg-bg font-sans" style={{ colorScheme: 'light' }}>
+      <header className="border-b border-ldg-line px-4 sm:px-6 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-[22px] h-[22px] rounded bg-ldg-ink text-ldg-on-ink flex items-center justify-center text-xs font-extrabold font-mono" aria-hidden="true">F</div>
+          <span className="text-sm font-bold tracking-widest text-ldg-ink">FACTURADOR</span>
+        </div>
+        <span className="text-[11px] text-ldg-muted font-mono">vista pública · solo lectura</span>
+      </header>
 
-      <div ref={contenidoRef} className="bg-white max-w-lg mx-auto rounded-xl shadow-sm p-6 space-y-6">
-        <div className="border-b border-gray-200 pb-4">
-          <h1 className="text-xl font-bold text-gray-800">Historial de cuenta</h1>
-          <p className="text-lg font-semibold text-gray-800 mt-1">{cliente.nombre}</p>
+      <main className="max-w-lg mx-auto px-3 sm:px-6 py-6 sm:py-8 pb-12">
+        <div ref={contenidoRef} className="bg-ldg-bg p-3 -m-3 space-y-5">
+          <div>
+            <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Historial de cuenta</div>
+            <h1 className="text-2xl font-bold text-ldg-ink tracking-tight break-words">{cliente.nombre}</h1>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <ResumenCard label="Pedidos" value={resumen.total_pedidos} />
+            <ResumenCard
+              label="Saldo pendiente"
+              value={`$${resumen.total_pendiente.toFixed(2)}`}
+              color={debe ? 'text-ldg-accent' : 'text-ldg-success'}
+            />
+            <ResumenCard label="Total gastado" value={`$${resumen.total_gastado.toFixed(2)}`} />
+            <ResumenCard label="Total pagado" value={`$${resumen.total_pagado.toFixed(2)}`} color="text-ldg-success" />
+          </div>
+
+          {historial.length === 0 ? (
+            <p className="text-center py-4 text-ldg-muted text-sm">Sin pedidos registrados.</p>
+          ) : (
+            <section aria-label="Pedidos">
+              <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-2">Pedidos</div>
+              <ul className="bg-ldg-surface border border-ldg-line rounded divide-y divide-ldg-line-soft">
+                {historial.map((h) => {
+                  const pagado = h.estado_pago === 'PAGADO'
+                  const pct = h.total > 0 ? Math.min((h.pagado / h.total) * 100, 100) : 100
+                  return (
+                    <li key={h.pedido_id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-bold text-ldg-ink text-sm">
+                              #{String(h.pedido_numero ?? h.pedido_id).padStart(3, '0')}
+                            </span>
+                            <span className="text-xs text-ldg-muted">{fechaCorta(h.fecha)}</span>
+                            <span className={`text-[10px] font-bold font-mono tracking-wide px-2 py-0.5 rounded-sm ${
+                              pagado ? 'text-ldg-success bg-ldg-success-soft' : 'text-ldg-accent bg-ldg-accent-soft'
+                            }`}>
+                              {pagado ? 'PAGADO' : 'PENDIENTE'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-ldg-muted mt-0.5">
+                            {h.items_activos} de {h.total_items} artículos activos
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0 font-mono">
+                          <p className="font-semibold text-ldg-ink text-sm">${h.total.toFixed(2)}</p>
+                          {h.saldo > 0 && <p className="text-xs text-ldg-accent">debe ${h.saldo.toFixed(2)}</p>}
+                        </div>
+                      </div>
+                      {h.total > 0 && (
+                        <div className="mt-2 h-1 bg-ldg-line-soft rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Porcentaje pagado">
+                          <div className={`h-full rounded-full ${pagado ? 'bg-ldg-success' : 'bg-ldg-accent'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
+
+          {resumen.total_pedidos > 0 && (
+            <div className={`rounded border p-4 flex justify-between items-center ${
+              debe ? 'bg-ldg-accent-soft border-ldg-line' : 'bg-ldg-success-soft border-ldg-line'
+            }`}>
+              <span className="font-semibold text-ldg-ink">{debe ? 'Total pendiente' : 'Saldo'}</span>
+              <span className={`text-xl font-bold font-mono ${debe ? 'text-ldg-accent' : 'text-ldg-success'}`}>
+                {debe ? `$${resumen.total_pendiente.toFixed(2)}` : 'Al día'}
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <ResumenCard label="Pedidos" value={resumen.total_pedidos} />
-          <ResumenCard
-            label="Saldo pendiente"
-            value={`$${resumen.total_pendiente.toFixed(2)}`}
-            color={resumen.total_pendiente > 0 ? 'text-red-600' : 'text-green-600'}
-          />
-          <ResumenCard label="Total gastado" value={`$${resumen.total_gastado.toFixed(2)}`} />
-          <ResumenCard label="Total pagado" value={`$${resumen.total_pagado.toFixed(2)}`} color="text-green-600" />
+        <div className="no-print flex flex-wrap gap-2 justify-end mt-5">
+          <button onClick={() => window.print()} className="ldg-btn-secondary">Imprimir / PDF</button>
+          <button onClick={() => copiarImagen(contenidoRef.current, `Historial_${cliente.nombre}`)} className="ldg-btn-primary">Copiar imagen</button>
         </div>
-
-        {historial.length === 0 ? (
-          <p className="text-center py-4 text-gray-400 text-sm">Sin pedidos registrados.</p>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Pedidos</p>
-            {historial.map((h) => (
-              <div key={h.pedido_id} className="border border-gray-200 rounded-xl px-4 py-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-800 text-sm">
-                        Pedido #{h.pedido_numero ?? h.pedido_id}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(h.fecha + 'T00:00:00').toLocaleDateString('es', {
-                          day: '2-digit', month: 'short', year: 'numeric',
-                        })}
-                      </span>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        h.estado_pago === 'PAGADO'
-                          ? 'bg-green-100 text-green-600'
-                          : 'bg-orange-100 text-orange-600'
-                      }`}>
-                        {h.estado_pago}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {h.items_activos} de {h.total_items} articulos activos
-                    </p>
-                  </div>
-                  <div className="text-right flex-shrink-0 ml-2">
-                    <p className="font-semibold text-gray-800 text-sm">${h.total.toFixed(2)}</p>
-                    {h.saldo > 0 && <p className="text-xs text-red-500">debe ${h.saldo.toFixed(2)}</p>}
-                    {h.saldo <= 0 && h.pagado > 0 && <p className="text-xs text-green-500">pagado</p>}
-                  </div>
-                </div>
-                {h.total > 0 && (
-                  <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-400 rounded-full"
-                      style={{ width: `${Math.min((h.pagado / h.total) * 100, 100)}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {resumen.total_pendiente > 0 && (
-          <div className="bg-red-50 rounded-xl p-4">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-700">Total pendiente</span>
-              <span className="text-xl font-bold text-red-600">${resumen.total_pendiente.toFixed(2)}</span>
-            </div>
-          </div>
-        )}
-        {resumen.total_pendiente <= 0 && resumen.total_pedidos > 0 && (
-          <div className="bg-green-50 rounded-xl p-4">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-700">Saldo</span>
-              <span className="text-xl font-bold text-green-600">Al dia</span>
-            </div>
-          </div>
-        )}
-      </div>
+      </main>
     </div>
-    </>
   )
 }

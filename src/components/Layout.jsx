@@ -12,15 +12,18 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-ldg-bg text-ldg-ink">
-      <header className="border-b border-ldg-line bg-ldg-bg sticky top-0 z-10 flex items-center justify-between px-8 py-3.5">
-        <div className="flex items-center gap-6">
+      <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 ldg-btn-primary">
+        Saltar al contenido
+      </a>
+      <header className="border-b border-ldg-line bg-ldg-bg sticky top-0 z-10 flex items-center justify-between gap-3 px-4 sm:px-8 py-3">
+        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
           <div className="flex items-center gap-2">
             <div className="w-[22px] h-[22px] rounded bg-ldg-ink text-ldg-on-ink flex items-center justify-center text-xs font-extrabold font-mono flex-shrink-0">
               F
             </div>
-            <span className="text-sm font-bold tracking-widest">FACTURADOR</span>
+            <span className="hidden sm:inline text-sm font-bold tracking-widest">FACTURADOR</span>
           </div>
-          <nav className="flex gap-0.5 ml-4">
+          <nav aria-label="Principal" className="flex gap-0.5 sm:ml-4">
             <NavLink
               to="/"
               end
@@ -48,25 +51,26 @@ export default function Layout() {
             </NavLink>
           </nav>
         </div>
-        <div className="flex items-center gap-3 text-xs text-ldg-muted font-mono">
+        <div className="flex items-center gap-2 sm:gap-3 text-xs text-ldg-muted font-mono flex-shrink-0">
           <button
             onClick={() => setDark(!dark)}
-            className="text-ldg-muted hover:text-ldg-ink transition-colors"
-            title={dark ? 'Modo claro' : 'Modo oscuro'}
+            className="ldg-link"
+            aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
-            {dark ? '◑ Claro' : '◐ Oscuro'}
+            <span aria-hidden="true">{dark ? '◑' : '◐'}</span>
+            <span className="hidden sm:inline ml-1">{dark ? 'Claro' : 'Oscuro'}</span>
           </button>
-          <span className="w-px h-3.5 bg-ldg-line" />
+          <span className="w-px h-3.5 bg-ldg-line" aria-hidden="true" />
           <button
             onClick={handleLogout}
-            className="text-ldg-muted hover:text-ldg-ink transition-colors"
+            className="ldg-link"
           >
             Salir
           </button>
         </div>
       </header>
 
-      <main className="flex-1 px-8 py-6">
+      <main id="contenido" className="flex-1 px-4 sm:px-8 py-5 sm:py-6 min-w-0">
         <Outlet />
       </main>
     </div>

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import html2canvas from 'html2canvas'
 import toast from 'react-hot-toast'
 import { getFacturaPublica } from '../api'
 import Lightbox from '../components/Lightbox'
+import { copiarImagen } from '../utils/copiarImagen'
+import { fechaLarga, fechaCorta } from '../utils/fecha'
 
 export default function FacturaPublica() {
   const { token } = useParams()
@@ -49,22 +50,12 @@ export default function FacturaPublica() {
 
   const handleImprimir = () => window.print()
 
-  const handleCopiarImagen = async () => {
-    if (!facturaRef.current) return
-    try {
-      const canvas = await html2canvas(facturaRef.current, { scale: 2, useCORS: true, backgroundColor: '#FFFCF5' })
-      canvas.toBlob(async (blob) => {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-        toast.success('Imagen copiada al portapapeles')
-      })
-    } catch {
-      toast.error('No se pudo copiar la imagen')
-    }
-  }
+  const handleCopiarImagen = () =>
+    copiarImagen(facturaRef.current, `Factura_${data.pedido_numero ?? data.pedido_id}`)
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-ldg-bg gap-4 px-6">
-      <p className="text-ldg-muted text-sm">Cargando...</p>
+      <p className="text-ldg-muted text-sm" role="status">Cargando tu factura…</p>
       {iniciandoServidor && (
         <>
           <p className="text-ldg-muted text-sm text-center max-w-xs">
@@ -82,26 +73,29 @@ export default function FacturaPublica() {
   )
 
   if (noValido) return (
-    <div className="min-h-screen flex items-center justify-center bg-ldg-bg">
-      <p className="text-ldg-muted text-sm">Este enlace no es válido o ya no existe.</p>
+    <div className="min-h-screen flex items-center justify-center bg-ldg-bg px-6 text-center">
+      <p className="text-ldg-muted text-sm">Este enlace no es válido o ya no existe. Pide a quien te lo envió un enlace nuevo.</p>
     </div>
   )
 
-  if (!data) return null
+  if (!data) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-ldg-bg px-6 text-center">
+      <p className="text-ldg-muted text-sm">No se pudo cargar la factura. Revisa tu conexión.</p>
+      <button onClick={() => window.location.reload()} className="ldg-btn-secondary">Reintentar</button>
+    </div>
+  )
 
-  const fechaFormateada = new Date(data.fecha + 'T00:00:00').toLocaleDateString('es', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  })
+  const fechaFormateada = fechaLarga(data.fecha)
   const itemsFacturados = data.items.filter((i) => i.activo)
   const pagado = data.saldo <= 0
   const pct    = data.total > 0 ? Math.min(100, (data.total_pagado ?? (data.total - data.saldo)) / data.total * 100) : 100
-  const gridCols = '36px 52px 1fr 96px'
+  const gridCols = '24px 44px minmax(0,1fr) auto'
 
   return (
     <>
       <div className="min-h-screen bg-ldg-bg font-sans" style={{ colorScheme: 'light' }}>
         {/* Minimal header */}
-        <header className="border-b border-ldg-line px-6 py-3.5 flex items-center justify-between">
+        <header className="border-b border-ldg-line px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-[22px] h-[22px] rounded bg-ldg-ink text-ldg-on-ink flex items-center justify-center text-xs font-extrabold font-mono">F</div>
             <span className="text-sm font-bold tracking-widest text-ldg-ink">FACTURADOR</span>
@@ -109,17 +103,19 @@ export default function FacturaPublica() {
           <span className="text-[11px] text-ldg-muted font-mono">vista pública · solo lectura</span>
         </header>
 
-        <div className="max-w-[720px] mx-auto px-6 py-8 pb-12">
+        <div className="max-w-[720px] mx-auto px-3 sm:px-6 py-6 sm:py-8 pb-12">
+         {/* Todo lo de aqui adentro sale en "Copiar imagen" (cabecera + items + pagos) */}
+         <div ref={facturaRef} className="bg-ldg-bg p-3 sm:p-4 -m-3 sm:-m-4">
           {/* Invoice heading */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Factura</div>
-              <h1 className="text-[32px] font-bold font-mono text-ldg-ink tracking-tight">#{String(data.pedido_numero ?? data.pedido_id).padStart(3, '0')}</h1>
+              <h1 className="text-[28px] sm:text-[32px] font-bold font-mono text-ldg-ink tracking-tight">#{String(data.pedido_numero ?? data.pedido_id).padStart(3, '0')}</h1>
               <p className="text-sm text-ldg-muted mt-1.5">{fechaFormateada}</p>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Para</div>
-              <div className="text-base font-bold text-ldg-ink">{data.cliente_nombre}</div>
+              <div className="text-base font-bold text-ldg-ink break-words">{data.cliente_nombre}</div>
               <div className="mt-2.5">
                 {pagado
                   ? <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-sm text-ldg-success bg-ldg-success-soft">PAGADO</span>
@@ -129,7 +125,7 @@ export default function FacturaPublica() {
           </div>
 
           {/* Items */}
-          <div ref={facturaRef} className="bg-ldg-surface border border-ldg-line rounded overflow-hidden mb-5">
+          <div className="bg-ldg-surface border border-ldg-line rounded overflow-hidden mb-5">
             <div
               className="grid gap-3 px-4 py-2.5 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted bg-ldg-surface-alt border-b border-ldg-line items-center"
               style={{ gridTemplateColumns: gridCols }}
@@ -141,28 +137,38 @@ export default function FacturaPublica() {
             {itemsFacturados.map((item) => (
               <div
                 key={item.id}
-                className="grid gap-3 px-4 py-3 items-center border-b border-ldg-line-soft last:border-b-0"
+                className="grid gap-3 px-3 sm:px-4 py-3 items-center border-b border-ldg-line-soft last:border-b-0"
                 style={{ gridTemplateColumns: gridCols }}
               >
                 <span className="font-mono text-ldg-muted text-xs">{String(item.numero).padStart(2, '0')}</span>
                 {item.imagen_url ? (
-                  <img
-                    src={item.imagen_url}
-                    alt=""
-                    className="w-11 h-11 object-cover rounded cursor-zoom-in"
-                    style={{ background: 'var(--ldg-sunken)' }}
+                  <button
+                    type="button"
                     onClick={() => setLightboxSrc(item.imagen_url)}
-                  />
+                    aria-label={`Ampliar foto de ${item.articulo || `artículo ${item.numero}`}`}
+                    className="w-11 h-11 rounded overflow-hidden cursor-zoom-in"
+                  >
+                    <img
+                      src={item.imagen_url}
+                      alt=""
+                      width="44"
+                      height="44"
+                      loading="lazy"
+                      crossOrigin="anonymous"
+                      className="w-11 h-11 object-cover"
+                      style={{ background: 'var(--ldg-sunken)' }}
+                    />
+                  </button>
                 ) : (
-                  <div className="w-11 h-11 rounded bg-ldg-sunken flex items-center justify-center text-ldg-muted-soft text-sm">—</div>
+                  <div className="w-11 h-11 rounded bg-ldg-sunken flex items-center justify-center text-ldg-muted-soft text-sm" aria-hidden="true">—</div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-sm text-ldg-ink">
+                  <p className="text-sm text-ldg-ink break-words">
                     {item.articulo || `Artículo #${item.numero}`}
                   </p>
                   {item.link && (
                     <a href={item.link} target="_blank" rel="noreferrer" className="text-[11px] text-ldg-accent hover:underline">
-                      ↗ ver enlace
+                      <span aria-hidden="true">↗ </span>ver enlace
                     </a>
                   )}
                 </div>
@@ -193,7 +199,7 @@ export default function FacturaPublica() {
                   <span>saldo</span><span>${data.saldo.toFixed(2)}</span>
                 </div>
               </div>
-              <div className="h-1 bg-ldg-line rounded-full overflow-hidden">
+              <div className="h-1 bg-ldg-line rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Porcentaje pagado">
                 <div className={`h-full rounded-full ${pagado ? 'bg-ldg-success' : 'bg-ldg-accent'}`} style={{ width: `${pct}%` }} />
               </div>
             </div>
@@ -205,25 +211,23 @@ export default function FacturaPublica() {
               <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-2">Pagos recibidos</div>
               <div className="bg-ldg-surface border border-ldg-line rounded px-4 py-2.5 space-y-1.5">
                 {data.pagos.map((p) => (
-                  <div key={p.id} className="flex justify-between text-sm font-mono">
-                    <span className="text-ldg-ink-soft">
-                      {p.fecha} · {p.tipo}{p.notas ? ` (${p.notas})` : ''}
+                  <div key={p.id} className="flex justify-between gap-3 text-sm font-mono">
+                    <span className="text-ldg-ink-soft min-w-0 break-words">
+                      {fechaCorta(p.fecha)} · {p.tipo}{p.notas ? ` (${p.notas})` : ''}
                     </span>
-                    <span className="text-ldg-success font-bold">+${p.monto.toFixed(2)}</span>
+                    <span className="text-ldg-success font-bold flex-shrink-0">+${p.monto.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="no-print flex gap-2 justify-end">
-            <button onClick={handleImprimir} className="ldg-btn-secondary">Imprimir</button>
-            <button onClick={handleCopiarImagen} className="ldg-btn-secondary">Copiar imagen</button>
-          </div>
+         </div>
 
-          <div className="mt-8 text-[11px] text-ldg-muted text-center font-mono tracking-wide">
-            facturador · {token}
+          {/* Actions */}
+          <div className="no-print flex flex-wrap gap-2 justify-end mt-5">
+            <button onClick={handleImprimir} className="ldg-btn-secondary">Imprimir / PDF</button>
+            <button onClick={handleCopiarImagen} className="ldg-btn-primary">Copiar imagen</button>
           </div>
         </div>
       </div>

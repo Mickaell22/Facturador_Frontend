@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import html2canvas from 'html2canvas'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { getPedido } from '../api'
+import { getPedido, errorMsg } from '../api'
+import { copiarImagen } from '../utils/copiarImagen'
+import { fechaLarga, fechaCorta } from '../utils/fecha'
+
+// Datos del emisor que salen en la cabecera; se configuran por entorno
+const EMISOR = [
+  import.meta.env.VITE_EMISOR_NOMBRE,
+  import.meta.env.VITE_EMISOR_EMAIL,
+  import.meta.env.VITE_EMISOR_CIUDAD,
+].filter(Boolean)
 
 export default function Factura() {
   const { pcId } = useParams()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const facturaRef = useRef(null)
   const [pc, setPc] = useState(null)
   const [pedido, setPedido] = useState(null)
@@ -15,50 +24,45 @@ export default function Factura() {
   useEffect(() => {
     const cargar = async () => {
       try {
-        const pedidoId = sessionStorage.getItem('pedido_id_para_factura')
-        if (!pedidoId) { navigate('/'); return }
+        // ?pedido= hace el enlace autosuficiente (recargable, abrible en otra pestaña);
+        // sessionStorage queda como respaldo para enlaces viejos
+        const pedidoId = params.get('pedido') || sessionStorage.getItem('pedido_id_para_factura')
+        if (!pedidoId) return
         const { data } = await getPedido(pedidoId)
         const pedidoCliente = data.clientes.find((c) => String(c.id) === String(pcId))
-        if (!pedidoCliente) { navigate('/'); return }
+        if (!pedidoCliente) return
         setPedido(data)
         setPc(pedidoCliente)
-      } catch {
-        toast.error('Error al cargar factura')
+      } catch (err) {
+        toast.error(errorMsg(err, 'Error al cargar factura'))
       } finally {
         setLoading(false)
       }
     }
     cargar()
-  }, [pcId])
+  }, [pcId, params])
 
   const handleImprimir = () => window.print()
 
-  const handleCopiarImagen = async () => {
-    if (!facturaRef.current) return
-    try {
-      const canvas = await html2canvas(facturaRef.current, { scale: 2, useCORS: true, backgroundColor: '#FFFCF5' })
-      canvas.toBlob(async (blob) => {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-        toast.success('Imagen copiada al portapapeles')
-      })
-    } catch {
-      toast.error('No se pudo copiar la imagen')
-    }
-  }
+  if (loading) return <p className="text-center py-16 text-ldg-muted text-sm" role="status">Cargando…</p>
+  if (!pc || !pedido) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="text-ldg-muted text-sm">No se encontró esta factura. Ábrela desde el pedido con el botón "Factura".</p>
+      <Link to="/" className="ldg-btn-secondary">Ir a pedidos</Link>
+    </div>
+  )
 
-  if (loading) return <p className="text-center py-16 text-ldg-muted text-sm">Cargando...</p>
-  if (!pc || !pedido) return null
+  const handleCopiarImagen = () =>
+    copiarImagen(facturaRef.current, `Factura_${pedido.numero ?? pedido.id}_${pc.cliente_nombre}`)
 
-  const fechaFormateada = new Date(pedido.fecha + 'T00:00:00').toLocaleDateString('es', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  })
+  const fechaFormateada = fechaLarga(pedido.fecha)
   const itemsFacturados = pc.items.filter((i) => i.activo)
   const pagado = Number(pc.saldo) <= 0
 
   return (
-    <div className="min-h-screen bg-[#E8E2D4] dark:bg-[#0F0D0B] py-10 px-6 font-sans">
+    <div className="min-h-screen bg-ldg-sunken py-6 sm:py-10 px-3 sm:px-6 font-sans">
       {/* Toolbar — no-print */}
-      <div className="no-print flex gap-2 justify-center mb-8">
+      <div className="no-print flex flex-wrap gap-2 justify-center mb-6 sm:mb-8">
         <button onClick={() => navigate(-1)} className="ldg-btn-secondary">Volver</button>
         <button onClick={handleImprimir} className="ldg-btn-secondary">Imprimir / PDF</button>
         <button onClick={handleCopiarImagen} className="ldg-btn-primary">Copiar imagen</button>
@@ -67,7 +71,7 @@ export default function Factura() {
       {/* Invoice paper */}
       <div
         ref={facturaRef}
-        className="max-w-[700px] mx-auto bg-ldg-surface border border-ldg-line text-ldg-ink px-14 py-12"
+        className="max-w-[700px] mx-auto bg-ldg-surface border border-ldg-line text-ldg-ink px-5 py-8 sm:px-14 sm:py-12"
         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
       >
         {/* Header */}
@@ -77,11 +81,11 @@ export default function Factura() {
               <div className="w-7 h-7 rounded bg-ldg-ink text-ldg-on-ink flex items-center justify-center text-sm font-extrabold font-mono">F</div>
               <span className="text-sm font-bold tracking-widest text-ldg-ink">FACTURADOR</span>
             </div>
-            <div className="text-[11px] text-ldg-muted leading-relaxed">
-              Mickaell Morán Vera<br />
-              mickaelmoranvera03@gmail.com<br />
-              Guayaquil, Ecuador
-            </div>
+            {EMISOR.length > 0 && (
+              <div className="text-[11px] text-ldg-muted leading-relaxed">
+                {EMISOR.map((l) => <div key={l}>{l}</div>)}
+              </div>
+            )}
           </div>
           <div className="text-right">
             <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-ldg-muted mb-1">Factura</div>
@@ -93,7 +97,7 @@ export default function Factura() {
         </div>
 
         {/* Billing info */}
-        <div className="grid grid-cols-2 gap-6 mb-7">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-7">
           <div>
             <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Facturado a</div>
             <div className="text-base font-bold text-ldg-ink">{pc.cliente_nombre}</div>
@@ -124,7 +128,7 @@ export default function Factura() {
                 </td>
                 <td className="py-2.5 border-b border-ldg-line-soft">
                   {item.imagen_url
-                    ? <img src={item.imagen_url} alt="" crossOrigin="anonymous" className="w-10 h-10 object-cover rounded" style={{ background: 'var(--ldg-sunken)' }} />
+                    ? <img src={item.imagen_url} alt="" width="40" height="40" crossOrigin="anonymous" className="w-10 h-10 object-cover rounded" style={{ background: 'var(--ldg-sunken)' }} />
                     : <div className="w-10 h-10 rounded bg-ldg-sunken" />}
                 </td>
                 <td className="py-2.5 border-b border-ldg-line-soft text-ldg-ink">{item.articulo || `Artículo #${item.numero}`}</td>
@@ -138,7 +142,7 @@ export default function Factura() {
 
         {/* Totals */}
         <div className="flex justify-end mb-7">
-          <div className="w-72 text-sm font-mono space-y-1">
+          <div className="w-full sm:w-80 text-sm font-mono space-y-1">
             <div className="flex justify-between text-ldg-ink-soft py-1">
               <span>Subtotal ({itemsFacturados.length} items)</span>
               <span>${Number(pc.subtotal).toFixed(2)}</span>
@@ -154,7 +158,7 @@ export default function Factura() {
               <>
                 {pc.pagos.map((pago) => (
                   <div key={pago.id} className="flex justify-between text-ldg-success py-0.5">
-                    <span>{pago.tipo}{pago.notas ? ` — ${pago.notas}` : ''} ({new Date(pago.fecha).toLocaleDateString('es', { day: '2-digit', month: 'short' })})</span>
+                    <span>{pago.tipo}{pago.notas ? ` — ${pago.notas}` : ''} ({fechaCorta(pago.fecha)})</span>
                     <span>−${Number(pago.monto).toFixed(2)}</span>
                   </div>
                 ))}

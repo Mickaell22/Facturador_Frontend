@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { API_URL } from '../api'
 
 const ERROR_MESSAGES = {
   cancelado: 'Inicio de sesion cancelado.',
@@ -25,10 +24,8 @@ export default function Login() {
   const [params] = useSearchParams()
   const error = params.get('error')
 
+  // El tema ya lo aplica index.html antes del render
   useEffect(() => {
-    const theme = localStorage.getItem('theme')
-    if (theme === 'dark') document.documentElement.classList.add('dark')
-    else if (theme === 'light') document.documentElement.classList.remove('dark')
     if (localStorage.getItem('token')) navigate('/', { replace: true })
   }, [])
 
@@ -52,7 +49,7 @@ export default function Login() {
 
         <div className="px-8 py-6">
           {error && (
-            <div className="text-sm text-ldg-danger bg-ldg-accent-soft border border-ldg-accent/30 rounded px-3 py-2 mb-5">
+            <div role="alert" className="text-sm text-ldg-danger bg-ldg-accent-soft border border-ldg-accent/30 rounded px-3 py-2 mb-5">
               {ERROR_MESSAGES[error] || 'Ocurrió un error inesperado.'}
             </div>
           )}

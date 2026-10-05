@@ -1,8 +1,16 @@
 import axios from 'axios'
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
-})
+export const API_URL = import.meta.env.VITE_API_URL
+
+const api = axios.create({ baseURL: API_URL })
+
+// Mensaje de error para toast: usa el detail del backend si es texto legible
+export const errorMsg = (err, fallback) => {
+  const d = err?.response?.data?.detail
+  if (typeof d === 'string') return d
+  if (!err?.response) return 'Sin conexión con el servidor. Revisa tu internet e intenta de nuevo.'
+  return fallback
+}
 
 // Agrega el token JWT a cada request
 api.interceptors.request.use((config) => {

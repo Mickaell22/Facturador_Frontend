@@ -59,7 +59,13 @@ frontend/
 Crea un archivo `.env.local`:
 
 ```env
-VITE_API_URL=https://tu-backend.railway.app
+VITE_API_URL=https://tu-backend.railway.app   # obligatoria, sin valor por defecto
+VITE_APP_TITLE=Facturador                      # titulo de la pestaña y metadatos
+
+# Opcionales: cabecera de la factura imprimible (si faltan, no se muestran)
+VITE_EMISOR_NOMBRE=Tu nombre
+VITE_EMISOR_EMAIL=tu@correo.com
+VITE_EMISOR_CIUDAD=Ciudad, País
 ```
 
 ---

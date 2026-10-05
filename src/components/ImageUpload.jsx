@@ -1,29 +1,40 @@
 import { useRef, useState, useEffect } from 'react'
 import Lightbox from './Lightbox'
 
-export default function ImageUpload({ imageUrl, onUpload, onDelete, label = 'foto' }) {
+// Subida de imagen por: click (selector de archivos / camara en movil),
+// arrastrar y soltar, o Ctrl+V. Con `pegarGlobal` escucha el pegado en toda
+// la pagina mientras este montado (p.ej. dentro del panel de nuevo articulo),
+// asi no hace falta enfocar la caja antes de pegar.
+// `onUpload` puede devolver una promesa: mientras no resuelve se muestra "subiendo".
+export default function ImageUpload({
+  imageUrl, onUpload, onDelete, label = 'foto', pegarGlobal = false, size = 'w-12 h-12', texto,
+}) {
   const inputRef = useRef(null)
   const [activo, setActivo] = useState(false)
+  const [arrastrando, setArrastrando] = useState(false)
+  const [subiendo, setSubiendo] = useState(false)
   const [lightbox, setLightbox] = useState(false)
   const onUploadRef = useRef(onUpload)
   useEffect(() => { onUploadRef.current = onUpload })
 
-  // Cuando llega imageUrl el div con tabIndex deja de renderizarse sin disparar
-  // onBlur, por lo que activo quedaría true y el handler de paste filtrado nunca
-  // se limpiaría, afectando pástes de otros componentes en la misma página.
+  // Cuando llega imageUrl el boton enfocado deja de renderizarse sin disparar
+  // onBlur; sin esto `activo` quedaria true y el listener de paste seguiria vivo.
   useEffect(() => {
     if (imageUrl) setActivo(false)
   }, [imageUrl])
 
-  const procesar = (file) => {
+  const procesar = async (file) => {
     if (!file || !file.type.startsWith('image/')) return
-    onUploadRef.current(file)
+    setSubiendo(true)
+    try { await onUploadRef.current(file) } finally { setSubiendo(false) }
   }
 
   // Listener a nivel document para Firefox en Linux (no expone clipboardData.items
-  // en elementos no editables via el evento onPaste del elemento)
+  // en elementos no editables via el evento onPaste del elemento).
+  // Solo intercepta pegados con imagen: el texto sigue llegando a los inputs.
+  const escuchar = pegarGlobal || activo
   useEffect(() => {
-    if (!activo) return
+    if (!escuchar) return
     const handler = (e) => {
       const items = e.clipboardData?.items
       if (!items) return
@@ -37,48 +48,60 @@ export default function ImageUpload({ imageUrl, onUpload, onDelete, label = 'fot
     }
     document.addEventListener('paste', handler)
     return () => document.removeEventListener('paste', handler)
-  }, [activo])
+  }, [escuchar])
+
+  const dropProps = {
+    onDragOver: (e) => { e.preventDefault(); setArrastrando(true) },
+    onDragLeave: () => setArrastrando(false),
+    onDrop: (e) => { e.preventDefault(); setArrastrando(false); procesar(e.dataTransfer.files?.[0]) },
+  }
+
+  const fileInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      tabIndex={-1}
+      onChange={(e) => { procesar(e.target.files?.[0]); e.target.value = '' }}
+    />
+  )
+
+  // En touch no hay hover: los controles quedan siempre visibles
+  const revelar = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity'
 
   if (imageUrl) {
     return (
       <>
-        <div className="relative group w-12 h-12 flex-shrink-0">
-          {/* Click en la imagen abre el lightbox */}
-          <img
-            src={imageUrl}
-            alt=""
-            className="w-12 h-12 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-zoom-in"
-            onClick={() => setLightbox(true)}
-          />
-
-          {/* Boton "cambiar" separado — aparece en hover, no cubre la imagen */}
+        <div className={`relative group ${size} flex-shrink-0`} {...dropProps}>
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); inputRef.current.click() }}
-            className="absolute -bottom-1 -right-1 bg-gray-700 text-white text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity leading-tight"
+            onClick={() => setLightbox(true)}
+            aria-label={`Ver ${label} ampliada`}
+            className={`${size} block rounded-lg overflow-hidden border border-ldg-line cursor-zoom-in`}
           >
-            cambiar
+            <img src={imageUrl} alt="" width="96" height="96" loading="lazy" className={`${size} object-cover ${subiendo ? 'opacity-40' : ''}`} />
           </button>
 
-          {/* Boton "x" para eliminar imagen */}
+          <button
+            type="button"
+            onClick={() => inputRef.current.click()}
+            className={`absolute -bottom-1 -right-1 bg-ldg-ink text-ldg-on-ink text-[10px] px-1.5 py-0.5 rounded leading-tight ${revelar}`}
+          >
+            {subiendo ? '…' : 'cambiar'}
+          </button>
+
           {onDelete && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onDelete() }}
-              className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none"
-              title="Eliminar imagen"
+              onClick={onDelete}
+              aria-label={`Quitar ${label}`}
+              className={`absolute -top-1.5 -right-1.5 bg-ldg-danger text-ldg-on-ink text-xs w-5 h-5 rounded-full flex items-center justify-center leading-none ${revelar}`}
             >
               &times;
             </button>
           )}
-
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => e.target.files[0] && procesar(e.target.files[0])}
-          />
+          {fileInput}
         </div>
 
         {lightbox && <Lightbox src={imageUrl} onClose={() => setLightbox(false)} />}
@@ -86,22 +109,28 @@ export default function ImageUpload({ imageUrl, onUpload, onDelete, label = 'fot
     )
   }
 
+  const resaltado = activo || arrastrando
   return (
-    <div
-      tabIndex={0}
-      onFocus={() => setActivo(true)}
-      onBlur={() => setActivo(false)}
-      className={`w-12 h-12 flex-shrink-0 flex flex-col items-center justify-center border-2 border-dashed rounded-lg transition-colors outline-none select-none cursor-pointer
-        ${activo
-          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-          : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'}`}
-      title="Haz click aqui y pega con Ctrl+V"
-    >
-      <span className={`text-xs leading-tight text-center pointer-events-none ${
-        activo ? 'text-blue-500 font-medium' : 'text-gray-300 dark:text-gray-600'
-      }`}>
-        {activo ? 'Ctrl+V' : label}
-      </span>
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={() => inputRef.current.click()}
+        onFocus={() => setActivo(true)}
+        onBlur={() => setActivo(false)}
+        disabled={subiendo}
+        aria-label={`Subir ${label}: toca para elegir, arrastra o pega con Ctrl+V`}
+        title="Click para elegir · arrastra · o pega con Ctrl+V"
+        {...dropProps}
+        className={`${size} flex-shrink-0 flex flex-col items-center justify-center gap-0.5 border-2 border-dashed rounded-lg transition-colors select-none
+          ${resaltado
+            ? 'border-ldg-accent bg-ldg-accent-soft text-ldg-accent'
+            : 'border-ldg-line text-ldg-muted-soft hover:border-ldg-accent hover:text-ldg-accent'}`}
+      >
+        <span className="text-[11px] leading-tight text-center pointer-events-none px-1">
+          {subiendo ? 'subiendo…' : texto ? (resaltado ? 'Ctrl+V o suelta aquí' : texto) : (activo ? 'Ctrl+V' : label)}
+        </span>
+      </button>
+      {fileInput}
+    </>
   )
 }

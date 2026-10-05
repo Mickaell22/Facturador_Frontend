@@ -4,6 +4,7 @@
 
 /* Ledger tokens — light mode */
 :root {
+  color-scheme: light;
   --ldg-bg:           #F6F1E8;
   --ldg-surface:      #FFFCF5;
   --ldg-surface-alt:  #FBF7EB;
@@ -25,6 +26,7 @@
 
 /* Ledger tokens — dark mode */
 .dark {
+  color-scheme: dark;
   --ldg-bg:           #1A1714;
   --ldg-surface:      #221E19;
   --ldg-surface-alt:  #2A2520;
@@ -47,22 +49,55 @@
 @layer base {
   body {
     @apply bg-ldg-bg text-ldg-ink font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, a, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+  }
+  /* Foco visible solo con teclado; el anillo usa el acento de la paleta */
+  :focus-visible {
+    outline: 2px solid var(--ldg-accent);
+    outline-offset: 2px;
+  }
+  /* Selects nativos legibles en Windows con modo oscuro */
+  select, option {
+    background-color: var(--ldg-bg);
+    color: var(--ldg-ink);
   }
 }
 
 @layer components {
   .ldg-input {
     @apply w-full border border-ldg-line bg-ldg-bg text-ldg-ink rounded px-3 py-2 text-sm
-           focus:outline-none focus:ring-1 focus:ring-ldg-accent
+           focus:outline-none focus-visible:outline-none focus:ring-1 focus:ring-ldg-accent
            placeholder:text-ldg-muted-soft;
   }
   .ldg-select {
     @apply border border-ldg-line bg-ldg-bg text-ldg-ink rounded px-3 py-2 text-sm
-           focus:outline-none focus:ring-1 focus:ring-ldg-accent;
+           focus:outline-none focus-visible:outline-none focus:ring-1 focus:ring-ldg-accent;
   }
   .ldg-btn {
     @apply px-3.5 py-1.5 text-sm font-semibold rounded cursor-pointer transition-opacity
-           hover:opacity-90 active:opacity-75;
+           hover:opacity-90 active:opacity-75
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  /* Accion de texto pequena (editar, mover...) con area tactil razonable */
+  .ldg-link {
+    @apply inline-flex items-center min-h-[28px] px-1 -mx-1 rounded text-ldg-muted transition-colors hover:text-ldg-ink;
+  }
+  /* Boton cuadrado solo con icono (x, flechas, menu) */
+  .ldg-icon-btn {
+    @apply inline-flex items-center justify-center w-7 h-7 rounded text-ldg-muted transition-colors
+           hover:text-ldg-ink hover:bg-ldg-surface-alt;
+  }
+  /* Caja de busqueda: el foco se ve en el contenedor */
+  .ldg-search {
+    @apply flex items-center gap-1.5 bg-ldg-surface border border-ldg-line rounded px-2.5 py-1.5
+           focus-within:ring-1 focus-within:ring-ldg-accent;
+  }
+  .ldg-search input:focus-visible { outline: none; }
+  .ldg-label {
+    @apply block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5;
   }
   .ldg-btn-primary {
     @apply ldg-btn bg-ldg-accent text-ldg-on-ink border-0;
@@ -105,6 +140,19 @@
 }
 .animate-ldg-fade { animation: ldg-fade 0.15s ease-out; }
 .animate-ldg-pop  { animation: ldg-pop 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes ldg-pulse {
+  50% { opacity: 0.45; }
+}
+.animate-ldg-pulse { animation: ldg-pulse 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
 @media print {
   .no-print {

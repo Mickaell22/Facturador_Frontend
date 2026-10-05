@@ -1,26 +1,77 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import SidePanel from '../components/SidePanel'
 import ImageUpload from '../components/ImageUpload'
+import Cargando from '../components/Cargando'
 import {
-  getPedido, getPedidos, getClientes, addClienteToPedido, removeClienteFromPedido,
+  getPedido, getPedidos, getClientes, createCliente, addClienteToPedido, removeClienteFromPedido,
   updateComisionPedidoCliente, moverClientePedido,
   createItem, updateItem, deleteItem, uploadItemImagen, deleteItemImagen, moverItems,
   createPago, deletePago, uploadComprobante,
-  exportPedidoExcel,
+  exportPedidoExcel, errorMsg,
 } from '../api'
 import { initials, avatarClass } from '../utils/avatar'
+import { fechaCorta, fechaLarga, fechaHora } from '../utils/fecha'
 import { useConfirm } from '../context/ConfirmContext'
 
 const ITEM_COL = '36px 52px 1fr 96px 56px 64px'
+const itemVacio = { link: '', articulo: '', precio: '', file: null, preview: null }
+const pagoVacio = { monto: '', tipo: 'transferencia', notas: '', file: null, preview: null }
+const numPedido = (p) => `#${String(p.numero ?? p.id).padStart(3, '0')}`
 
 function StatCell({ label, value, accent, last }) {
   return (
-    <div className={`flex-1 min-w-0 px-5 py-3.5 ${last ? '' : 'border-r border-ldg-line'}`}>
+    <div className={`flex-1 min-w-[120px] px-5 py-3.5 ${last ? '' : 'border-r border-ldg-line'}`}>
       <p className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">{label}</p>
       <p className={`text-[20px] font-bold font-mono leading-none ${accent || 'text-ldg-ink'}`}>{value}</p>
     </div>
+  )
+}
+
+// Menu "⋯" para las acciones secundarias de cada cliente del pedido
+function MenuAcciones({ label, abierto, onToggle, onClose, children }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!abierto) return
+    const click = (e) => { if (!ref.current?.contains(e.target)) onClose() }
+    const key = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', click)
+    document.addEventListener('keydown', key)
+    return () => { document.removeEventListener('mousedown', click); document.removeEventListener('keydown', key) }
+  }, [abierto, onClose])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+        className="ldg-icon-btn text-lg leading-none"
+      >
+        ⋯
+      </button>
+      {abierto && (
+        <div role="menu" className="absolute right-0 top-full mt-1 z-20 min-w-[190px] bg-ldg-surface border border-ldg-line rounded shadow-lg py-1 animate-ldg-fade">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ItemMenu({ onClick, danger, children }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={`w-full text-left px-3 py-2 text-sm hover:bg-ldg-surface-alt transition-colors ${danger ? 'text-ldg-danger' : 'text-ldg-ink'}`}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -31,24 +82,34 @@ export default function PedidoDetalle() {
 
   const [pedido, setPedido] = useState(null)
   const [clientes, setClientes] = useState([])
+  const [pedidos, setPedidos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [exportando, setExportando] = useState(false)
+  const [menuAbierto, setMenuAbierto] = useState(null)
+
   const [panelCliente, setPanelCliente] = useState(false)
-  const [panelItem, setPanelItem] = useState(null)
-  const [panelPago, setPanelPago] = useState(null)
-  const [clienteSeleccionado, setClienteSeleccionado] = useState('')
   const [busquedaCombo, setBusquedaCombo] = useState('')
-  const [comboAbierto, setComboAbierto] = useState(false)
+  const [comboIdx, setComboIdx] = useState(0)
+
+  const [panelItem, setPanelItem] = useState(null)
+  const [formItem, setFormItem] = useState(itemVacio)
+  const [agregadosPanel, setAgregadosPanel] = useState(0)
+  const primerCampoItem = useRef(null)
+
+  const [panelEditItem, setPanelEditItem] = useState(null)
+  const [formEditItem, setFormEditItem] = useState({ link: '', articulo: '', precio: '' })
+
+  const [panelPago, setPanelPago] = useState(null)
+  const [formPago, setFormPago] = useState(pagoVacio)
+
   const [colapsados, setColapsados] = useState(new Set())
   const [editandoComision, setEditandoComision] = useState(null)
   const [comisionInput, setComisionInput] = useState('')
-  const [panelEditItem, setPanelEditItem] = useState(null)
-  const [formEditItem, setFormEditItem] = useState({ link: '', articulo: '', precio: '' })
-  const [formItem, setFormItem] = useState({ link: '', articulo: '', precio: '' })
-  const [formPago, setFormPago] = useState({ monto: '', tipo: 'transferencia', notas: '' })
   const [busquedaPedido, setBusquedaPedido] = useState('')
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('todos')
+
   const [panelMover, setPanelMover] = useState(null)
-  const [pedidos, setPedidos] = useState([])
   const [pedidoDestinoId, setPedidoDestinoId] = useState('')
   const [panelMoverItems, setPanelMoverItems] = useState(null)
   const [itemsSeleccionados, setItemsSeleccionados] = useState(new Set())
@@ -57,7 +118,43 @@ export default function PedidoDetalle() {
   const [moverDestPcId, setMoverDestPcId] = useState('')
   const [confirmMover, setConfirmMover] = useState('')
 
+  // Carga inicial: pedido + catalogos para los paneles
+  const cargar = async () => {
+    try {
+      const [pedidoRes, clientesRes, pedidosRes] = await Promise.all([getPedido(id), getClientes(), getPedidos()])
+      setPedido(pedidoRes.data)
+      setClientes(clientesRes.data)
+      setPedidos(pedidosRes.data)
+    } catch (err) {
+      toast.error(errorMsg(err, 'Error al cargar pedido'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Tras cada cambio solo hace falta el pedido (totales los calcula el backend)
+  const recargar = async () => {
+    try {
+      const { data } = await getPedido(id)
+      setPedido(data)
+    } catch (err) {
+      toast.error(errorMsg(err, 'Error al recargar el pedido'))
+    }
+  }
+
+  useEffect(() => { cargar() }, [id])
+
+  // Envuelve una accion: bloquea doble envio y muestra el error del backend
+  const ejecutar = async (fn, msgError) => {
+    if (guardando) return false
+    setGuardando(true)
+    try { await fn(); return true }
+    catch (err) { toast.error(errorMsg(err, msgError)); return false }
+    finally { setGuardando(false) }
+  }
+
   const handleExport = async () => {
+    setExportando(true)
     try {
       const res = await exportPedidoExcel(id)
       const url = URL.createObjectURL(res.data)
@@ -66,59 +163,68 @@ export default function PedidoDetalle() {
       a.download = `Pedido_${pedido?.numero || id}_${pedido?.fecha || ''}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      toast.error('Error al exportar Excel')
-    }
-  }
-
-  const cargar = async () => {
-    try {
-      const [pedidoRes, clientesRes, pedidosRes] = await Promise.all([getPedido(id), getClientes(), getPedidos()])
-      setPedido(pedidoRes.data)
-      setClientes(clientesRes.data)
-      setPedidos(pedidosRes.data)
-    } catch {
-      toast.error('Error al cargar pedido')
+    } catch (err) {
+      toast.error(errorMsg(err, 'Error al exportar Excel'))
     } finally {
-      setLoading(false)
+      setExportando(false)
     }
   }
 
-  useEffect(() => { cargar() }, [id])
+  // ── Clientes ───────────────────────────────────────
+  const cerrarPanelCliente = () => { setPanelCliente(false); setBusquedaCombo(''); setComboIdx(0) }
 
-  const agregarCliente = async () => {
-    if (!clienteSeleccionado) return
-    try {
-      await addClienteToPedido(id, clienteSeleccionado)
-      setClienteSeleccionado('')
-      setPanelCliente(false)
-      cargar()
-    } catch { toast.error('Error al agregar cliente') }
-  }
+  const agregarCliente = (cliente) => ejecutar(async () => {
+    await addClienteToPedido(id, cliente.id)
+    toast.success(`${cliente.nombre} agregado`)
+    cerrarPanelCliente()
+    await recargar()
+  }, 'Error al agregar cliente')
 
-  const quitarCliente = async (clienteId) => {
+  const crearYAgregarCliente = (nombre) => ejecutar(async () => {
+    const { data: nuevo } = await createCliente({ nombre })
+    setClientes((prev) => [...prev, nuevo])
+    await addClienteToPedido(id, nuevo.id)
+    toast.success(`Cliente ${nuevo.nombre} creado y agregado`)
+    cerrarPanelCliente()
+    await recargar()
+  }, 'Error al crear cliente')
+
+  const quitarCliente = async (pc) => {
     if (!await confirm({
       title: 'Quitar cliente del pedido',
-      message: 'Se eliminarán sus ítems y pagos. Esta acción no se puede deshacer.',
+      message: `Se eliminarán los ítems y pagos de ${pc.cliente_nombre} en este pedido. Esta acción no se puede deshacer.`,
       confirmText: 'Quitar cliente',
     })) return
-    try { await removeClienteFromPedido(id, clienteId); cargar() }
-    catch { toast.error('Error al quitar cliente') }
+    if (await ejecutar(() => removeClienteFromPedido(id, pc.cliente_id), 'Error al quitar cliente')) {
+      toast.success(`${pc.cliente_nombre} quitado del pedido`)
+      recargar()
+    }
   }
 
   const moverCliente = async () => {
     if (!pedidoDestinoId || !panelMover) return
-    try {
-      await moverClientePedido(id, panelMover.cliente_id, parseInt(pedidoDestinoId))
+    const ok = await ejecutar(
+      () => moverClientePedido(id, panelMover.cliente_id, parseInt(pedidoDestinoId)),
+      'Error al mover cliente',
+    )
+    if (ok) {
       setPanelMover(null)
       setPedidoDestinoId('')
-      cargar()
       toast.success('Cliente movido al pedido destino')
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Error al mover cliente')
+      recargar()
     }
   }
 
+  const guardarComision = async (clienteId) => {
+    const val = parseFloat(comisionInput)
+    if (isNaN(val) || val < 0) return toast.error('Comisión inválida: usa un número mayor o igual a 0')
+    if (await ejecutar(() => updateComisionPedidoCliente(id, clienteId, val), 'Error al actualizar comisión')) {
+      setEditandoComision(null)
+      recargar()
+    }
+  }
+
+  // ── Mover articulos ───────────────────────────────
   const abrirMoverItems = (pc) => {
     setPanelMoverItems(pc)
     setItemsSeleccionados(new Set())
@@ -135,8 +241,8 @@ export default function PedidoDetalle() {
     try {
       const res = await getPedido(destId)
       setMoverDestPedido(res.data)
-    } catch {
-      toast.error('Error al cargar el pedido destino')
+    } catch (err) {
+      toast.error(errorMsg(err, 'Error al cargar el pedido destino'))
       setMoverDestPedido(null)
     }
   }
@@ -151,118 +257,206 @@ export default function PedidoDetalle() {
     if (itemsSeleccionados.size === 0) return toast.error('Selecciona al menos un artículo')
     if (!moverDestPcId) return toast.error('Selecciona el cliente destino')
     if (confirmMover.trim().toUpperCase() !== 'MOVER') return toast.error('Escribe MOVER para confirmar')
-    try {
+    let movidos = 0
+    const ok = await ejecutar(async () => {
       const res = await moverItems(panelMoverItems.id, [...itemsSeleccionados], parseInt(moverDestPcId))
+      movidos = res.data.movidos
+    }, 'Error al mover artículos')
+    if (ok) {
       setPanelMoverItems(null)
-      cargar()
-      toast.success(`${res.data.movidos} artículo(s) movido(s)`)
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Error al mover artículos')
+      toast.success(`${movidos} artículo(s) movido(s)`)
+      recargar()
     }
   }
 
-  const guardarComision = async (clienteId) => {
-    const val = parseFloat(comisionInput)
-    if (isNaN(val) || val < 0) return toast.error('Comisión inválida')
-    try {
-      await updateComisionPedidoCliente(id, clienteId, val)
-      setEditandoComision(null)
-      cargar()
-    } catch { toast.error('Error al actualizar comisión') }
+  // ── Articulos ─────────────────────────────────────
+  const abrirNuevoItem = (pc) => {
+    setFormItem(itemVacio)
+    setAgregadosPanel(0)
+    setPanelItem(pc)
   }
 
-  const guardarEditItem = async (e, pc) => {
-    e.preventDefault()
-    if (!formEditItem.precio) return toast.error('El precio es requerido')
-    try {
-      await updateItem(pc.id, panelEditItem.id, {
-        link: formEditItem.link || null,
-        articulo: formEditItem.articulo || null,
-        precio: parseFloat(formEditItem.precio),
-      })
-      setPanelEditItem(null)
-      cargar()
-      toast.success('Artículo actualizado')
-    } catch { toast.error('Error al actualizar artículo') }
+  const cerrarNuevoItem = () => {
+    if (formItem.preview) URL.revokeObjectURL(formItem.preview)
+    setFormItem(itemVacio)
+    setPanelItem(null)
   }
 
-  const agregarItem = async (e, pc) => {
+  const elegirFotoNueva = (file) => {
+    if (formItem.preview) URL.revokeObjectURL(formItem.preview)
+    setFormItem((f) => ({ ...f, file, preview: URL.createObjectURL(file) }))
+  }
+
+  const quitarFotoNueva = () => {
+    if (formItem.preview) URL.revokeObjectURL(formItem.preview)
+    setFormItem((f) => ({ ...f, file: null, preview: null }))
+  }
+
+  // El panel queda abierto tras agregar: se cargan varios articulos seguidos
+  // (link, foto pegada y precio) sin volver a abrirlo.
+  const agregarItem = async (e) => {
     e.preventDefault()
     if (!formItem.precio) return toast.error('El precio es requerido')
-    try {
-      await createItem(pc.id, {
-        link: formItem.link || null,
-        articulo: formItem.articulo || null,
+    const pc = pedido.clientes.find((c) => c.id === panelItem.id) ?? panelItem
+    const ok = await ejecutar(async () => {
+      const numero = pc.items.reduce((m, i) => Math.max(m, i.numero ?? 0), 0) + 1
+      const { data: item } = await createItem(pc.id, {
+        link: formItem.link.trim() || null,
+        articulo: formItem.articulo.trim() || null,
         precio: parseFloat(formItem.precio),
-        numero: pc.items.length + 1,
+        numero,
       })
-      setFormItem({ link: '', articulo: '', precio: '' })
-      setPanelItem(null)
-      cargar()
-      toast.success('Item agregado')
-    } catch { toast.error('Error al agregar item') }
+      if (formItem.file) {
+        try { await uploadItemImagen(pc.id, item.id, formItem.file) }
+        catch (err) { toast.error(errorMsg(err, 'Artículo creado, pero la foto no se pudo subir. Pégala en la fila.')) }
+      }
+      await recargar()
+    }, 'Error al agregar artículo')
+    if (ok) {
+      if (formItem.preview) URL.revokeObjectURL(formItem.preview)
+      setFormItem(itemVacio)
+      setAgregadosPanel((n) => n + 1)
+      toast.success('Artículo agregado')
+      primerCampoItem.current?.focus()
+    }
   }
 
+  const guardarEditItem = async (e) => {
+    e.preventDefault()
+    if (!formEditItem.precio) return toast.error('El precio es requerido')
+    const pc = panelEditItem._pc
+    const ok = await ejecutar(() => updateItem(pc.id, panelEditItem.id, {
+      link: formEditItem.link.trim() || null,
+      articulo: formEditItem.articulo.trim() || null,
+      precio: parseFloat(formEditItem.precio),
+    }), 'Error al actualizar artículo')
+    if (ok) {
+      setPanelEditItem(null)
+      toast.success('Artículo actualizado')
+      recargar()
+    }
+  }
+
+  // Optimista: el check cambia al instante; el backend recalcula totales despues
   const toggleActivo = async (pc, item) => {
-    try { await updateItem(pc.id, item.id, { activo: !item.activo }); cargar() }
-    catch { toast.error('Error al actualizar item') }
+    setPedido((p) => ({
+      ...p,
+      clientes: p.clientes.map((c) => c.id !== pc.id ? c : {
+        ...c, items: c.items.map((i) => i.id === item.id ? { ...i, activo: !i.activo } : i),
+      }),
+    }))
+    try { await updateItem(pc.id, item.id, { activo: !item.activo }) }
+    catch (err) { toast.error(errorMsg(err, 'Error al actualizar artículo')) }
+    recargar()
   }
 
-  const eliminarItem = async (pc, itemId) => {
+  const eliminarItem = async (pc, item) => {
     if (!await confirm({
-      title: 'Eliminar ítem',
-      message: '¿Seguro que quieres eliminar este ítem?',
+      title: 'Eliminar artículo',
+      message: `¿Eliminar "${item.articulo || `Item #${item.numero}`}" de ${pc.cliente_nombre}?`,
       confirmText: 'Eliminar',
     })) return
-    try { await deleteItem(pc.id, itemId); cargar() }
-    catch { toast.error('Error al eliminar item') }
+    if (await ejecutar(() => deleteItem(pc.id, item.id), 'Error al eliminar artículo')) recargar()
   }
 
   const subirImagenItem = async (pc, itemId, file) => {
-    try { await uploadItemImagen(pc.id, itemId, file); toast.success('Imagen subida'); cargar() }
-    catch { toast.error('Error al subir imagen') }
+    try { await uploadItemImagen(pc.id, itemId, file); toast.success('Imagen subida'); await recargar() }
+    catch (err) { toast.error(errorMsg(err, 'Error al subir imagen')) }
   }
 
   const eliminarImagenItem = async (pc, itemId) => {
-    try { await deleteItemImagen(pc.id, itemId); cargar() }
-    catch { toast.error('Error al eliminar imagen') }
+    if (!await confirm({ title: 'Quitar foto', message: '¿Quitar la foto de este artículo?', confirmText: 'Quitar' })) return
+    try { await deleteItemImagen(pc.id, itemId); recargar() }
+    catch (err) { toast.error(errorMsg(err, 'Error al eliminar imagen')) }
   }
 
-  const registrarPago = async (e, pc) => {
+  // ── Pagos ─────────────────────────────────────────
+  const abrirPago = (pc) => { setFormPago(pagoVacio); setPanelPago(pc) }
+
+  const cerrarPago = () => {
+    if (formPago.preview) URL.revokeObjectURL(formPago.preview)
+    setFormPago(pagoVacio)
+    setPanelPago(null)
+  }
+
+  const registrarPago = async (e) => {
     e.preventDefault()
-    if (!formPago.monto) return toast.error('El monto es requerido')
-    try {
-      await createPago(pc.id, { monto: parseFloat(formPago.monto), tipo: formPago.tipo, notas: formPago.notas || null })
-      setFormPago({ monto: '', tipo: 'transferencia', notas: '' })
-      setPanelPago(null)
-      cargar()
-      toast.success('Pago registrado')
-    } catch { toast.error('Error al registrar pago') }
+    const monto = parseFloat(formPago.monto)
+    if (!(monto > 0)) return toast.error('Ingresa un monto mayor a 0')
+    const pc = panelPago
+    const ok = await ejecutar(async () => {
+      const { data: pago } = await createPago(pc.id, { monto, tipo: formPago.tipo, notas: formPago.notas.trim() || null })
+      if (formPago.file) {
+        try { await uploadComprobante(pc.id, pago.id, formPago.file) }
+        catch (err) { toast.error(errorMsg(err, 'Pago registrado, pero el comprobante no se pudo subir.')) }
+      }
+      await recargar()
+    }, 'Error al registrar pago')
+    if (ok) {
+      cerrarPago()
+      toast.success(`Pago de $${monto.toFixed(2)} registrado`)
+    }
   }
 
-  const eliminarPago = async (pc, pagoId) => {
+  const eliminarPago = async (pc, pago) => {
     if (!await confirm({
       title: 'Eliminar pago',
-      message: '¿Seguro que quieres eliminar este pago?',
+      message: `¿Eliminar el pago de $${Number(pago.monto).toFixed(2)} de ${pc.cliente_nombre}?`,
       confirmText: 'Eliminar',
     })) return
-    try { await deletePago(pc.id, pagoId); cargar() }
-    catch { toast.error('Error al eliminar pago') }
+    if (await ejecutar(() => deletePago(pc.id, pago.id), 'Error al eliminar pago')) recargar()
   }
 
   const subirComprobante = async (pc, pagoId, file) => {
-    try { await uploadComprobante(pc.id, pagoId, file); toast.success('Comprobante subido'); cargar() }
-    catch { toast.error('Error al subir comprobante') }
+    try { await uploadComprobante(pc.id, pagoId, file); toast.success('Comprobante subido'); await recargar() }
+    catch (err) { toast.error(errorMsg(err, 'Error al subir comprobante')) }
   }
 
-  if (loading) return <p className="text-center py-16 text-ldg-muted text-sm">Cargando...</p>
-  if (!pedido)  return <p className="text-center py-16 text-ldg-muted text-sm">Pedido no encontrado</p>
+  // Mensaje para WhatsApp: solo articulos activos, igual que la factura
+  const copiarMensaje = async (pc) => {
+    const url = `${window.location.origin}/p/${pc.token_publico}`
+    const itemsTexto = pc.items
+      .filter((i) => i.activo)
+      .map((i) => `• ${i.articulo || `Item #${i.numero}`}: $${Number(i.precio).toFixed(2)}`)
+      .join('\n')
+    const mensaje = [
+      `*${pc.cliente_nombre}* — Pedido #${pedido.numero ?? pedido.id}`,
+      '', itemsTexto || '(sin artículos)', '',
+      `Subtotal: $${Number(pc.subtotal).toFixed(2)}`,
+      `Comisión: $${Number(pc.comision).toFixed(2)}`,
+      `*Total: $${Number(pc.total).toFixed(2)}*`,
+      Number(pc.total_pagado) > 0 ? `Pagado: -$${Number(pc.total_pagado).toFixed(2)}` : null,
+      `*Saldo: $${Number(pc.saldo).toFixed(2)}*`, '',
+      'Ten en cuenta que al momento de hacer la compra los precios pueden subir o bajar.', '',
+      url,
+    ].filter((l) => l !== null).join('\n')
+    try {
+      await navigator.clipboard.writeText(mensaje)
+      toast.success('Mensaje copiado, listo para pegar en WhatsApp')
+    } catch {
+      toast.error('No se pudo copiar. Revisa los permisos del portapapeles del navegador.')
+    }
+  }
 
-  const clientesEnPedido   = pedido.clientes.map((c) => c.cliente_id)
+  if (loading) return <Cargando />
+  if (!pedido) return (
+    <div className="text-center py-16 space-y-3">
+      <p className="text-ldg-muted text-sm">No se pudo cargar el pedido.</p>
+      <div className="flex justify-center gap-2">
+        <button onClick={() => { setLoading(true); cargar() }} className="ldg-btn-secondary">Reintentar</button>
+        <Link to="/" className="ldg-btn-ghost">Volver a pedidos</Link>
+      </div>
+    </div>
+  )
+
+  const clientesEnPedido    = pedido.clientes.map((c) => c.cliente_id)
   const clientesDisponibles = clientes.filter((c) => !clientesEnPedido.includes(c.id))
-  const fechaFormateada = new Date(pedido.fecha + 'T00:00:00').toLocaleDateString('es', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  })
+  const qCombo = busquedaCombo.trim().toLowerCase()
+  const opcionesCombo = clientesDisponibles.filter((c) =>
+    c.nombre.toLowerCase().includes(qCombo) || c.aliases?.some((a) => a.alias.toLowerCase().includes(qCombo)),
+  )
+  const existeExacto = clientes.some((c) => c.nombre.toLowerCase() === qCombo)
+  const puedeCrear = qCombo.length > 0 && !existeExacto
 
   const resumenPedido = pedido.clientes.reduce(
     (acc, pc) => ({
@@ -274,7 +468,7 @@ export default function PedidoDetalle() {
     { porCobrar: 0, cobrado: 0, comision: 0, totalItems: 0 }
   )
 
-  const todosColapsados = pedido.clientes.every((pc) => colapsados.has(pc.id))
+  const todosColapsados = pedido.clientes.length > 0 && pedido.clientes.every((pc) => colapsados.has(pc.id))
 
   const clientesFiltrados = pedido.clientes.filter((pc) => {
     const q = busquedaPedido.trim().toLowerCase()
@@ -284,39 +478,56 @@ export default function PedidoDetalle() {
     return true
   })
 
+  const pcItemActual = panelItem ? (pedido.clientes.find((c) => c.id === panelItem.id) ?? panelItem) : null
+
+  const onComboKey = (e) => {
+    const total = opcionesCombo.length + (puedeCrear ? 1 : 0)
+    if (e.key === 'ArrowDown') { e.preventDefault(); setComboIdx((i) => Math.min(i + 1, total - 1)) }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setComboIdx((i) => Math.max(i - 1, 0)) }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (comboIdx < opcionesCombo.length) agregarCliente(opcionesCombo[comboIdx])
+      else if (puedeCrear) crearYAgregarCliente(busquedaCombo.trim())
+    }
+  }
+
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="text-xs text-ldg-muted mb-2">
-        <button onClick={() => navigate('/')} className="hover:text-ldg-ink transition-colors">Pedidos</button>
-        <span className="mx-2">/</span>
-        <span className="font-mono">#{String(pedido.numero ?? pedido.id).padStart(3, '0')}</span>
-      </div>
+      <nav aria-label="Ruta" className="text-xs text-ldg-muted mb-2">
+        <Link to="/" className="hover:text-ldg-ink transition-colors">Pedidos</Link>
+        <span className="mx-2" aria-hidden="true">/</span>
+        <span className="font-mono" aria-current="page">{numPedido(pedido)}</span>
+      </nav>
 
       {/* Page header */}
-      <div className="flex items-end justify-between mb-5 pb-4 border-b border-ldg-line">
-        <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pb-4 border-b border-ldg-line">
+        <div className="min-w-0">
           <h1 className="text-[28px] font-bold text-ldg-ink tracking-tight">
-            <span className="font-mono">#{String(pedido.numero ?? pedido.id).padStart(3, '0')}</span>
-            <span className="text-ldg-muted font-normal text-lg ml-3">{fechaFormateada}</span>
+            <span className="font-mono">{numPedido(pedido)}</span>
+            <span className="text-ldg-muted font-normal text-lg ml-3">{fechaLarga(pedido.fecha)}</span>
           </h1>
-          {pedido.notas && <p className="text-sm text-ldg-ink-soft italic mt-1.5">{pedido.notas}</p>}
+          {pedido.notas && <p className="text-sm text-ldg-ink-soft italic mt-1.5 break-words">{pedido.notas}</p>}
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setColapsados(todosColapsados ? new Set() : new Set(pedido.clientes.map((pc) => pc.id)))}
-            className="ldg-btn-secondary"
-          >
-            {todosColapsados ? 'Expandir todo' : 'Contraer todo'}
+        <div className="flex flex-wrap gap-2">
+          {pedido.clientes.length > 1 && (
+            <button
+              onClick={() => setColapsados(todosColapsados ? new Set() : new Set(pedido.clientes.map((pc) => pc.id)))}
+              className="ldg-btn-ghost"
+            >
+              {todosColapsados ? 'Expandir todo' : 'Contraer todo'}
+            </button>
+          )}
+          <button onClick={handleExport} disabled={exportando} className="ldg-btn-success">
+            {exportando ? 'Exportando…' : 'Exportar Excel'}
           </button>
-          <button onClick={handleExport} className="ldg-btn-success">Exportar Excel</button>
           <button onClick={() => setPanelCliente(true)} className="ldg-btn-primary">+ Cliente</button>
         </div>
       </div>
 
       {/* Stats strip */}
       {pedido.clientes.length > 0 && (
-        <div className="bg-ldg-surface border border-ldg-line rounded flex mb-5 overflow-hidden">
+        <div className="bg-ldg-surface border border-ldg-line rounded flex mb-5 overflow-x-auto">
           <StatCell label="Clientes"   value={pedido.clientes.length} />
           <StatCell label="Items"      value={resumenPedido.totalItems} />
           <StatCell label="Comisión"   value={`$${resumenPedido.comision.toFixed(2)}`}  accent="text-ldg-accent" />
@@ -326,24 +537,26 @@ export default function PedidoDetalle() {
       )}
 
       {/* Search/filter bar */}
-      {pedido.clientes.length > 0 && (
-        <div className="flex gap-2 mb-4">
-          <div className="flex items-center gap-1.5 bg-ldg-surface border border-ldg-line rounded px-2.5 py-1.5 flex-1 max-w-xs">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ldg-muted flex-shrink-0">
+      {pedido.clientes.length > 1 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <div className="ldg-search flex-1 min-w-[200px] max-w-xs">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ldg-muted flex-shrink-0" aria-hidden="true">
               <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
             </svg>
             <input
-              type="text"
+              type="search"
               value={busquedaPedido}
               onChange={(e) => setBusquedaPedido(e.target.value)}
-              placeholder="Buscar cliente..."
-              className="flex-1 bg-transparent text-sm text-ldg-ink placeholder:text-ldg-muted-soft focus:outline-none"
+              placeholder="Buscar cliente…"
+              aria-label="Buscar cliente en este pedido"
+              autoComplete="off"
+              className="flex-1 min-w-0 bg-transparent text-sm text-ldg-ink placeholder:text-ldg-muted-soft focus:outline-none"
             />
             {busquedaPedido && (
-              <button onClick={() => setBusquedaPedido('')} className="text-ldg-muted hover:text-ldg-ink text-base leading-none">&times;</button>
+              <button onClick={() => setBusquedaPedido('')} aria-label="Limpiar búsqueda" className="text-ldg-muted hover:text-ldg-ink text-base leading-none">&times;</button>
             )}
           </div>
-          <div className="flex border border-ldg-line rounded overflow-hidden font-mono text-xs">
+          <div className="flex border border-ldg-line rounded overflow-hidden font-mono text-xs" role="group" aria-label="Filtrar por estado de pago">
             {[
               { key: 'todos', label: 'todos' },
               { key: 'pendientes', label: 'con saldo' },
@@ -352,6 +565,7 @@ export default function PedidoDetalle() {
               <button
                 key={key}
                 onClick={() => setFiltroEstadoPedido(key)}
+                aria-pressed={filtroEstadoPedido === key}
                 className={`px-3 py-1.5 border-r border-ldg-line last:border-r-0 transition-colors ${
                   filtroEstadoPedido === key
                     ? 'bg-ldg-ink text-ldg-on-ink'
@@ -366,57 +580,73 @@ export default function PedidoDetalle() {
       )}
 
       {pedido.clientes.length === 0 && (
-        <p className="text-center py-20 text-ldg-muted text-sm">Agrega un cliente para comenzar.</p>
+        <div className="text-center py-16 border border-dashed border-ldg-line rounded space-y-3">
+          <p className="text-ldg-muted text-sm">Este pedido aún no tiene clientes.</p>
+          <button onClick={() => setPanelCliente(true)} className="ldg-btn-primary">+ Agregar el primer cliente</button>
+        </div>
+      )}
+      {pedido.clientes.length > 0 && clientesFiltrados.length === 0 && (
+        <p className="text-center py-10 text-ldg-muted text-sm">Ningún cliente coincide con el filtro.</p>
       )}
 
       {/* Client cards */}
       <div className="space-y-4">
-        {clientesFiltrados.map((pc, idx) => {
+        {clientesFiltrados.map((pc) => {
           const pagado = Number(pc.saldo) <= 0
           const pct = Number(pc.total) > 0 ? Math.min(100, (Number(pc.total_pagado) / Number(pc.total)) * 100) : 0
           const colapsado = colapsados.has(pc.id)
+          const activos = pc.items.filter((i) => i.activo).length
 
           return (
-            <div key={pc.id} className="bg-ldg-surface border border-ldg-line rounded overflow-hidden">
+            <section key={pc.id} aria-label={pc.cliente_nombre} className="bg-ldg-surface border border-ldg-line rounded">
               {/* Client header */}
-              <div className="grid gap-3 px-4 py-3 bg-ldg-surface-alt border-b border-ldg-line-soft items-center"
-                style={{ gridTemplateColumns: '32px 1fr auto auto' }}>
-                <span
-                  className={`w-7 h-7 rounded-full inline-flex items-center justify-center text-[11px] font-bold text-ldg-ink flex-shrink-0 ${avatarClass(pc.cliente_nombre)}`}
-                >
-                  {initials(pc.cliente_nombre)}
-                </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-ldg-ink">{pc.cliente_nombre}</span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 bg-ldg-surface-alt border-b border-ldg-line-soft rounded-t">
+                <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                  <span
+                    aria-hidden="true"
+                    className={`w-7 h-7 rounded-full inline-flex items-center justify-center text-[11px] font-bold text-ldg-ink flex-shrink-0 ${avatarClass(pc.cliente_nombre)}`}
+                  >
+                    {initials(pc.cliente_nombre)}
+                  </span>
+                  <div className="min-w-0">
+                    <Link to={`/clientes/${pc.cliente_id}`} className="text-sm font-bold text-ldg-ink hover:text-ldg-accent transition-colors break-words">
+                      {pc.cliente_nombre}
+                    </Link>
                     {editandoComision === pc.cliente_id ? (
                       <form
                         onSubmit={(e) => { e.preventDefault(); guardarComision(pc.cliente_id) }}
-                        className="flex items-center gap-1"
+                        className="flex items-center gap-1 mt-0.5"
                       >
                         <span className="text-xs text-ldg-muted font-mono">$</span>
                         <input
-                          type="number" step="0.01" min="0"
+                          type="number" step="0.01" min="0" inputMode="decimal"
                           value={comisionInput}
                           onChange={(e) => setComisionInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditandoComision(null) } }}
+                          aria-label={`Comisión por artículo de ${pc.cliente_nombre}`}
                           autoFocus
-                          className="w-14 border border-ldg-accent rounded px-1 py-0.5 text-xs font-mono text-ldg-ink bg-ldg-bg focus:outline-none"
+                          className="w-16 border border-ldg-accent rounded px-1 py-0.5 text-xs font-mono text-ldg-ink bg-ldg-bg focus:outline-none"
                         />
                         <span className="text-xs text-ldg-muted font-mono">/item</span>
-                        <button type="submit" className="text-xs text-ldg-accent font-semibold hover:underline">OK</button>
-                        <button type="button" onClick={() => setEditandoComision(null)} className="text-xs text-ldg-muted hover:underline">×</button>
+                        <button type="submit" disabled={guardando} className="ldg-link text-xs text-ldg-accent font-semibold">Guardar</button>
+                        <button type="button" onClick={() => setEditandoComision(null)} className="ldg-link text-xs">Cancelar</button>
                       </form>
                     ) : (
-                      <button
-                        onClick={() => { setEditandoComision(pc.cliente_id); setComisionInput(String(Number(pc.cliente_comision))) }}
-                        className="text-[11px] font-mono text-ldg-muted hover:text-ldg-accent transition-colors"
-                      >
-                        comisión ${Number(pc.cliente_comision).toFixed(2)}/item · {pc.items.length} items · {pc.items.filter(i => i.activo).length} activos
-                      </button>
+                      <p className="text-[11px] font-mono text-ldg-muted">
+                        <button
+                          onClick={() => { setEditandoComision(pc.cliente_id); setComisionInput(String(Number(pc.cliente_comision))) }}
+                          title="Editar comisión de este pedido"
+                          className="underline decoration-dotted underline-offset-2 hover:text-ldg-accent transition-colors"
+                        >
+                          comisión ${Number(pc.cliente_comision).toFixed(2)}/item
+                        </button>
+                        {' · '}{pc.items.length} items · {activos} activos
+                      </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 font-mono text-sm">
+
+                <div className="flex items-center gap-4 font-mono text-sm">
                   <div className="text-right">
                     <div className="text-[10px] text-ldg-muted uppercase tracking-widest">Total</div>
                     <div className="font-bold text-[15px] text-ldg-ink">${Number(pc.total).toFixed(2)}</div>
@@ -428,176 +658,173 @@ export default function PedidoDetalle() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-[11px]">
-                  <button
-                    onClick={() => { sessionStorage.setItem('pedido_id_para_factura', id); navigate(`/factura/${pc.id}`) }}
-                    className="text-ldg-muted hover:text-ldg-accent transition-colors"
-                  >
-                    factura
-                  </button>
+
+                <div className="flex items-center gap-1.5">
+                  <Link to={`/factura/${pc.id}?pedido=${id}`} className="ldg-btn-ghost text-xs px-2.5 py-1">Factura</Link>
                   {pc.token_publico && (
-                    <button
-                      onClick={() => {
-                        const url = `${window.location.origin}/p/${pc.token_publico}`
-                        const itemsTexto = pc.items
-                          .map((i) => `• ${i.articulo || `Item #${i.numero}`}: $${Number(i.precio).toFixed(2)}`)
-                          .join('\n')
-                        const mensaje = [
-                          `*${pc.cliente_nombre}* — Pedido #${pedido.numero ?? pedido.id}`,
-                          '', itemsTexto || '(sin artículos)', '',
-                          `Subtotal: $${Number(pc.subtotal).toFixed(2)}`,
-                          `Comisión: $${Number(pc.comision).toFixed(2)}`,
-                          `*Total: $${Number(pc.total).toFixed(2)}*`,
-                          Number(pc.total_pagado) > 0 ? `Pagado: -$${Number(pc.total_pagado).toFixed(2)}` : null,
-                          `*Saldo: $${Number(pc.saldo).toFixed(2)}*`, '',
-                          'Ten en cuenta que al momento de hacer la compra los precios pueden subir o bajar.', '',
-                          url,
-                        ].filter((l) => l !== null).join('\n')
-                        navigator.clipboard.writeText(mensaje).then(() => toast.success('Mensaje copiado'))
-                      }}
-                      className="text-ldg-muted hover:text-ldg-accent transition-colors"
-                    >
-                      copiar
+                    <button onClick={() => copiarMensaje(pc)} className="ldg-btn-ghost text-xs px-2.5 py-1" title="Copia el resumen + enlace para WhatsApp">
+                      Copiar mensaje
                     </button>
                   )}
-                  <button
-                    onClick={() => { setPanelMover(pc); setPedidoDestinoId('') }}
-                    className="text-ldg-muted hover:text-ldg-accent transition-colors"
+                  <MenuAcciones
+                    label={`Más acciones para ${pc.cliente_nombre}`}
+                    abierto={menuAbierto === pc.id}
+                    onToggle={() => setMenuAbierto(menuAbierto === pc.id ? null : pc.id)}
+                    onClose={() => setMenuAbierto(null)}
                   >
-                    mover
-                  </button>
-                  {pc.items.length > 0 && (
-                    <button
-                      onClick={() => abrirMoverItems(pc)}
-                      className="text-ldg-muted hover:text-ldg-accent transition-colors"
-                    >
-                      mover ítems
-                    </button>
-                  )}
-                  <button onClick={() => quitarCliente(pc.cliente_id)} className="text-ldg-muted hover:text-ldg-danger transition-colors">quitar</button>
+                    <ItemMenu onClick={() => { setMenuAbierto(null); setPanelMover(pc); setPedidoDestinoId('') }}>
+                      Mover cliente a otro pedido
+                    </ItemMenu>
+                    {pc.items.length > 0 && (
+                      <ItemMenu onClick={() => { setMenuAbierto(null); abrirMoverItems(pc) }}>
+                        Mover artículos…
+                      </ItemMenu>
+                    )}
+                    <div className="my-1 border-t border-ldg-line-soft" role="separator" />
+                    <ItemMenu danger onClick={() => { setMenuAbierto(null); quitarCliente(pc) }}>
+                      Quitar del pedido
+                    </ItemMenu>
+                  </MenuAcciones>
                   <button
                     onClick={() => setColapsados((prev) => {
                       const next = new Set(prev)
                       next.has(pc.id) ? next.delete(pc.id) : next.add(pc.id)
                       return next
                     })}
-                    className="text-ldg-muted hover:text-ldg-ink transition-colors text-base leading-none"
+                    aria-expanded={!colapsado}
+                    aria-label={colapsado ? `Mostrar artículos de ${pc.cliente_nombre}` : `Ocultar artículos de ${pc.cliente_nombre}`}
+                    className="ldg-icon-btn text-base leading-none"
                   >
-                    {colapsado ? '▸' : '▾'}
+                    <span aria-hidden="true">{colapsado ? '▸' : '▾'}</span>
                   </button>
                 </div>
               </div>
 
               {!colapsado && (
                 <>
-                  {/* Items table header */}
-                  <div
-                    className="grid gap-3 px-4 py-2 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted border-b border-ldg-line-soft"
-                    style={{ gridTemplateColumns: ITEM_COL }}
-                  >
-                    <span>#</span><span></span><span>Artículo</span>
-                    <span className="text-right">Precio</span>
-                    <span className="text-center">Activo</span><span></span>
+                  {/* ponytail: tabla de ancho minimo con scroll horizontal en movil;
+                      si se usa mucho en celular, pasar a layout de tarjeta por item */}
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[560px]">
+                      <div
+                        className="grid gap-3 px-4 py-2 text-[10px] font-semibold tracking-widest uppercase text-ldg-muted border-b border-ldg-line-soft"
+                        style={{ gridTemplateColumns: ITEM_COL }}
+                      >
+                        <span>#</span><span>Foto</span><span>Artículo</span>
+                        <span className="text-right">Precio</span>
+                        <span className="text-center">Activo</span><span></span>
+                      </div>
+
+                      {pc.items.length === 0 && (
+                        <div className="px-4 py-3 text-xs text-ldg-muted italic">Sin artículos aún.</div>
+                      )}
+                      {pc.items.map((item) => {
+                        const nombre = item.articulo || `Item #${item.numero}`
+                        return (
+                          <div
+                            key={item.id}
+                            className="grid gap-3 px-4 py-2.5 items-center border-b border-ldg-line-soft"
+                            style={{ gridTemplateColumns: ITEM_COL }}
+                          >
+                            <span className="font-mono text-ldg-muted text-xs">{String(item.numero).padStart(2, '0')}</span>
+                            <ImageUpload
+                              imageUrl={item.imagen_url}
+                              onUpload={(file) => subirImagenItem(pc, item.id, file)}
+                              onDelete={item.imagen_url ? () => eliminarImagenItem(pc, item.id) : undefined}
+                            />
+                            <div className="min-w-0">
+                              <p className={`text-sm truncate ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted line-through'}`} title={nombre}>
+                                {item.articulo || <span className="text-ldg-muted">Item #{item.numero}</span>}
+                              </p>
+                              {item.link && (
+                                <a href={item.link} target="_blank" rel="noreferrer" className="text-[11px] text-ldg-accent hover:underline truncate block">
+                                  <span aria-hidden="true">↗ </span>ver enlace
+                                </a>
+                              )}
+                            </div>
+                            <span className={`text-right font-mono font-semibold text-sm ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted-soft line-through'}`}>${Number(item.precio).toFixed(2)}</span>
+                            <span className="text-center">
+                              <button
+                                onClick={() => toggleActivo(pc, item)}
+                                aria-pressed={item.activo}
+                                aria-label={`${nombre}: ${item.activo ? 'activo' : 'inactivo'}`}
+                                title={item.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}
+                                className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-ldg-surface-alt"
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  className={`w-[18px] h-[18px] rounded-full inline-flex items-center justify-center text-[11px] font-bold transition-colors ${
+                                    item.activo
+                                      ? 'bg-ldg-success text-ldg-on-ink'
+                                      : 'border-[1.5px] border-dashed border-ldg-muted-soft text-transparent'
+                                  }`}
+                                >
+                                  {item.activo ? '✓' : '·'}
+                                </span>
+                              </button>
+                            </span>
+                            <div className="flex items-center justify-end gap-1 text-[11px]">
+                              <button
+                                onClick={() => {
+                                  setPanelEditItem({ ...item, _pc: pc })
+                                  setFormEditItem({ link: item.link || '', articulo: item.articulo || '', precio: String(item.precio || '') })
+                                }}
+                                className="ldg-link"
+                              >
+                                editar
+                              </button>
+                              <button onClick={() => eliminarItem(pc, item)} aria-label={`Eliminar ${nombre}`} className="ldg-icon-btn hover:text-ldg-danger">×</button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
 
-                  {/* Items */}
-                  {pc.items.length === 0 && (
-                    <div className="px-4 py-3 text-xs text-ldg-muted italic">Sin artículos aún.</div>
-                  )}
-                  {pc.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="grid gap-3 px-4 py-2.5 items-center border-b border-ldg-line-soft"
-                      style={{ gridTemplateColumns: ITEM_COL }}
-                    >
-                      <span className="font-mono text-ldg-muted text-xs">{String(item.numero).padStart(2, '0')}</span>
-                      <ImageUpload
-                        imageUrl={item.imagen_url}
-                        onUpload={(file) => subirImagenItem(pc, item.id, file)}
-                        onDelete={item.imagen_url ? () => eliminarImagenItem(pc, item.id) : undefined}
-                      />
-                      <div className="min-w-0">
-                        <p className={`text-sm truncate ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted line-through'}`}>{item.articulo || <span className="text-ldg-muted">Item #{item.numero}</span>}</p>
-                        {item.link && (
-                          <a href={item.link} target="_blank" rel="noreferrer" className="text-[11px] text-ldg-accent hover:underline truncate block">
-                            ↗ ver enlace
-                          </a>
-                        )}
-                      </div>
-                      <span className={`text-right font-mono font-semibold text-sm ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted-soft line-through'}`}>${Number(item.precio).toFixed(2)}</span>
-                      <span className="text-center">
-                        <button
-                          onClick={() => toggleActivo(pc, item)}
-                          title={item.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}
-                          className={`w-[18px] h-[18px] rounded-full inline-flex items-center justify-center text-[11px] font-bold transition-colors ${
-                            item.activo
-                              ? 'bg-ldg-success text-ldg-on-ink'
-                              : 'border-[1.5px] border-dashed border-ldg-muted-soft text-transparent'
-                          }`}
-                        >
-                          {item.activo ? '✓' : '·'}
-                        </button>
-                      </span>
-                      <div className="flex items-center justify-end gap-2 text-[11px] text-ldg-muted">
-                        <button
-                          onClick={() => {
-                            setPanelEditItem({ ...item, _pc: pc })
-                            setFormEditItem({ link: item.link || '', articulo: item.articulo || '', precio: String(item.precio || '') })
-                          }}
-                          className="hover:text-ldg-accent transition-colors"
-                        >
-                          editar
-                        </button>
-                        <button onClick={() => eliminarItem(pc, item.id)} className="hover:text-ldg-danger transition-colors">×</button>
-                      </div>
-                    </div>
-                  ))}
-
                   {/* Add item row */}
-                  <div className="px-4 py-2.5 border-b border-ldg-line">
+                  <div className="px-4 py-2 border-b border-ldg-line">
                     <button
-                      onClick={() => { setFormItem({ link: '', articulo: '', precio: '' }); setPanelItem(pc) }}
-                      className="text-xs font-semibold text-ldg-accent tracking-wide hover:underline"
+                      onClick={() => abrirNuevoItem(pc)}
+                      className="ldg-link text-xs font-semibold text-ldg-accent tracking-wide"
                     >
                       + AGREGAR ARTÍCULO
                     </button>
                   </div>
 
                   {/* Footer: pagos | totals */}
-                  <div className="grid grid-cols-2 border-t border-ldg-line">
+                  <div className="grid grid-cols-1 sm:grid-cols-2">
                     {/* Pagos */}
-                    <div className="px-4 py-3 border-r border-ldg-line bg-ldg-surface-alt">
+                    <div className="px-4 py-3 border-b sm:border-b-0 sm:border-r border-ldg-line bg-ldg-surface-alt">
                       <div className="text-[10px] font-semibold tracking-widest uppercase text-ldg-muted mb-2">
                         Pagos ({pc.pagos.length})
                       </div>
                       {pc.pagos.length === 0 ? (
                         <p className="text-xs text-ldg-muted-soft italic">Sin pagos registrados</p>
                       ) : (
-                        <div className="space-y-1.5">
+                        <ul className="space-y-1.5">
                           {pc.pagos.map((pago) => (
-                            <div key={pago.id} className="flex items-center gap-2">
-                              <ImageUpload imageUrl={pago.comprobante_url} onUpload={(file) => subirComprobante(pc, pago.id, file)} label="comp." />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-[11px] font-mono text-ldg-ink-soft truncate">
-                                    {pago.fecha} · {pago.tipo}{pago.notas ? ` (${pago.notas})` : ''}
-                                  </span>
-                                  <span className="text-[11px] font-mono font-bold text-ldg-success flex-shrink-0">+${Number(pago.monto).toFixed(2)}</span>
-                                </div>
+                            <li key={pago.id} className="flex items-center gap-2">
+                              <ImageUpload imageUrl={pago.comprobante_url} onUpload={(file) => subirComprobante(pc, pago.id, file)} label="comprobante" />
+                              <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-mono text-ldg-ink-soft truncate" title={pago.notas || undefined}>
+                                  {fechaHora(pago.fecha)} · {pago.tipo}{pago.notas ? ` (${pago.notas})` : ''}
+                                </span>
+                                <span className="text-[11px] font-mono font-bold text-ldg-success flex-shrink-0">+${Number(pago.monto).toFixed(2)}</span>
                               </div>
                               <button
-                                onClick={() => eliminarPago(pc, pago.id)}
-                                className="text-ldg-muted hover:text-ldg-danger text-sm flex-shrink-0 transition-colors"
+                                onClick={() => eliminarPago(pc, pago)}
+                                aria-label={`Eliminar pago de $${Number(pago.monto).toFixed(2)}`}
+                                className="ldg-icon-btn hover:text-ldg-danger flex-shrink-0"
                               >
                                 ×
                               </button>
-                            </div>
+                            </li>
                           ))}
-                        </div>
+                        </ul>
                       )}
                       <button
-                        onClick={() => { setFormPago({ monto: '', tipo: 'transferencia', notas: '' }); setPanelPago(pc) }}
-                        className="mt-2.5 text-[11px] font-semibold text-ldg-accent tracking-wide hover:underline"
+                        onClick={() => abrirPago(pc)}
+                        className="ldg-link mt-2 text-[11px] font-semibold text-ldg-accent tracking-wide"
                       >
                         + REGISTRAR PAGO
                       </button>
@@ -620,7 +847,14 @@ export default function PedidoDetalle() {
                         </div>
                       </div>
                       <div>
-                        <div className="h-1 bg-ldg-line-soft rounded-full overflow-hidden">
+                        <div
+                          className="h-1 bg-ldg-line-soft rounded-full overflow-hidden"
+                          role="progressbar"
+                          aria-valuenow={Math.round(pct)}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-label="Porcentaje pagado"
+                        >
                           <div
                             className={`h-full rounded-full ${pagado ? 'bg-ldg-success' : 'bg-ldg-accent'}`}
                             style={{ width: `${pct}%` }}
@@ -637,143 +871,205 @@ export default function PedidoDetalle() {
                   </div>
                 </>
               )}
-            </div>
+            </section>
           )
         })}
       </div>
 
-      {/* Panel: agregar cliente */}
-      <SidePanel
-        open={panelCliente}
-        onClose={() => { setPanelCliente(false); setBusquedaCombo(''); setComboAbierto(false); setClienteSeleccionado('') }}
-        title="Agregar cliente al pedido"
-      >
-        {clientesDisponibles.length === 0 ? (
-          <p className="text-sm text-ldg-muted">Todos los clientes ya están en este pedido.</p>
-        ) : (
-          <>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Buscar cliente..."
-                value={busquedaCombo}
-                onChange={(e) => { setBusquedaCombo(e.target.value); setComboAbierto(true); setClienteSeleccionado('') }}
-                onFocus={() => setComboAbierto(true)}
-                className="ldg-input"
-              />
-              {clienteSeleccionado && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-ldg-success text-xs font-semibold">✓</span>
-              )}
-              {comboAbierto && (
-                <div className="absolute z-10 w-full mt-1 bg-ldg-surface border border-ldg-line rounded shadow-lg max-h-60 overflow-y-auto">
-                  {clientesDisponibles
-                    .filter((c) => c.nombre.toLowerCase().includes(busquedaCombo.toLowerCase()))
-                    .map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onMouseDown={() => {
-                          setClienteSeleccionado(String(c.id))
-                          setBusquedaCombo(c.nombre)
-                          setComboAbierto(false)
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-ldg-ink hover:bg-ldg-surface-alt transition-colors"
-                      >
-                        {c.nombre}
-                      </button>
-                    ))}
-                  {clientesDisponibles.filter((c) => c.nombre.toLowerCase().includes(busquedaCombo.toLowerCase())).length === 0 && (
-                    <p className="px-4 py-2 text-sm text-ldg-muted">Sin resultados</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => { agregarCliente(); setBusquedaCombo(''); setComboAbierto(false) }}
-              disabled={!clienteSeleccionado}
-              className="ldg-btn-primary w-full py-2 disabled:opacity-40"
+      {/* Panel: agregar cliente (busca o crea en el mismo paso) */}
+      <SidePanel open={panelCliente} onClose={cerrarPanelCliente} title="Agregar cliente al pedido">
+        <div>
+          <label htmlFor="combo-cliente" className="ldg-label">Cliente</label>
+          <input
+            id="combo-cliente"
+            type="text"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="combo-opciones"
+            aria-activedescendant={`combo-op-${comboIdx}`}
+            autoComplete="off"
+            placeholder="Escribe un nombre o alias…"
+            value={busquedaCombo}
+            onChange={(e) => { setBusquedaCombo(e.target.value); setComboIdx(0) }}
+            onKeyDown={onComboKey}
+            className="ldg-input"
+          />
+          <p className="text-[11px] text-ldg-muted mt-1">↑↓ para elegir, Enter para agregar.</p>
+        </div>
+        <ul id="combo-opciones" role="listbox" aria-label="Clientes disponibles" className="border border-ldg-line rounded max-h-[60vh] overflow-y-auto divide-y divide-ldg-line-soft">
+          {opcionesCombo.map((c, i) => (
+            <li
+              key={c.id}
+              id={`combo-op-${i}`}
+              role="option"
+              aria-selected={comboIdx === i}
+              onMouseEnter={() => setComboIdx(i)}
+              onClick={() => agregarCliente(c)}
+              className={`flex items-center gap-2.5 px-3 py-2.5 text-sm cursor-pointer ${comboIdx === i ? 'bg-ldg-surface-alt' : ''}`}
             >
-              Agregar
-            </button>
-          </>
-        )}
+              <span aria-hidden="true" className={`w-6 h-6 rounded-full inline-flex items-center justify-center text-[10px] font-bold text-ldg-ink flex-shrink-0 ${avatarClass(c.nombre)}`}>
+                {initials(c.nombre)}
+              </span>
+              <span className="flex-1 min-w-0 truncate text-ldg-ink">{c.nombre}</span>
+              <span className="font-mono text-[11px] text-ldg-muted">${Number(c.comision_por_item).toFixed(2)}</span>
+            </li>
+          ))}
+          {puedeCrear && (
+            <li
+              id={`combo-op-${opcionesCombo.length}`}
+              role="option"
+              aria-selected={comboIdx === opcionesCombo.length}
+              onMouseEnter={() => setComboIdx(opcionesCombo.length)}
+              onClick={() => crearYAgregarCliente(busquedaCombo.trim())}
+              className={`px-3 py-2.5 text-sm cursor-pointer text-ldg-accent font-semibold ${comboIdx === opcionesCombo.length ? 'bg-ldg-surface-alt' : ''}`}
+            >
+              + Crear cliente «{busquedaCombo.trim()}» y agregarlo
+            </li>
+          )}
+          {opcionesCombo.length === 0 && !puedeCrear && (
+            <li className="px-3 py-2.5 text-sm text-ldg-muted">
+              {clientesDisponibles.length === 0 ? 'Todos los clientes ya están en este pedido.' : 'Escribe para buscar.'}
+            </li>
+          )}
+        </ul>
+        {guardando && <p className="text-xs text-ldg-muted" role="status">Guardando…</p>}
       </SidePanel>
 
-      {/* Panel: agregar item */}
+      {/* Panel: agregar articulo (foto incluida; queda abierto para el siguiente) */}
       <SidePanel
         open={!!panelItem}
-        onClose={() => setPanelItem(null)}
-        title={panelItem ? `Nuevo artículo — ${panelItem.cliente_nombre}` : ''}
+        onClose={cerrarNuevoItem}
+        title={pcItemActual ? `Nuevo artículo — ${pcItemActual.cliente_nombre}` : ''}
       >
-        {panelItem && (
-          <form onSubmit={(e) => agregarItem(e, panelItem)} className="space-y-4">
+        {pcItemActual && (
+          <form onSubmit={agregarItem} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Link del artículo</label>
-              <input type="text" placeholder="https://..." value={formItem.link} onChange={(e) => setFormItem({ ...formItem, link: e.target.value })} className="ldg-input" />
+              <span className="ldg-label">Foto</span>
+              <ImageUpload
+                imageUrl={formItem.preview}
+                onUpload={elegirFotoNueva}
+                onDelete={quitarFotoNueva}
+                pegarGlobal
+                size="w-full h-32"
+                label="foto del artículo"
+                texto="Pega con Ctrl+V, arrastra o toca para elegir"
+              />
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Nombre del artículo</label>
-              <input type="text" placeholder="Opcional" value={formItem.articulo} onChange={(e) => setFormItem({ ...formItem, articulo: e.target.value })} className="ldg-input" />
+              <label htmlFor="item-link" className="ldg-label">Link del artículo</label>
+              <input
+                id="item-link" ref={primerCampoItem} data-autofocus
+                type="text" inputMode="url" autoComplete="off" spellCheck={false}
+                placeholder="https://…"
+                value={formItem.link}
+                onChange={(e) => setFormItem({ ...formItem, link: e.target.value })}
+                className="ldg-input"
+              />
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Precio <span className="text-ldg-danger">*</span></label>
-              <input type="number" step="0.01" min="0" placeholder="0.00" value={formItem.precio} onChange={(e) => setFormItem({ ...formItem, precio: e.target.value })} required className="ldg-input font-mono" />
+              <label htmlFor="item-nombre" className="ldg-label">Nombre del artículo</label>
+              <input id="item-nombre" type="text" autoComplete="off" placeholder="Opcional" value={formItem.articulo} onChange={(e) => setFormItem({ ...formItem, articulo: e.target.value })} className="ldg-input" />
             </div>
-            <button type="submit" className="ldg-btn-primary w-full py-2">Agregar artículo</button>
+            <div>
+              <label htmlFor="item-precio" className="ldg-label">Precio <span className="text-ldg-danger">*</span></label>
+              <input id="item-precio" type="number" step="0.01" min="0" inputMode="decimal" placeholder="0.00" value={formItem.precio} onChange={(e) => setFormItem({ ...formItem, precio: e.target.value })} required className="ldg-input font-mono" />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={guardando} className="ldg-btn-primary flex-1 py-2">
+                {guardando ? 'Guardando…' : 'Agregar artículo'}
+              </button>
+              <button type="button" onClick={cerrarNuevoItem} className="ldg-btn-ghost py-2">Listo</button>
+            </div>
+            <p className="text-[11px] text-ldg-muted" aria-live="polite">
+              {agregadosPanel > 0
+                ? `${agregadosPanel} agregado(s). El panel sigue abierto para el siguiente; Esc o "Listo" para cerrar.`
+                : 'El panel queda abierto para cargar varios artículos seguidos.'}
+            </p>
           </form>
         )}
       </SidePanel>
 
-      {/* Panel: registrar pago */}
+      {/* Panel: registrar pago (comprobante incluido) */}
       <SidePanel
         open={!!panelPago}
-        onClose={() => setPanelPago(null)}
+        onClose={cerrarPago}
         title={panelPago ? `Registrar pago — ${panelPago.cliente_nombre}` : ''}
       >
         {panelPago && (
-          <form onSubmit={(e) => registrarPago(e, panelPago)} className="space-y-4">
+          <form onSubmit={registrarPago} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Monto <span className="text-ldg-danger">*</span></label>
-              <input type="number" step="0.01" min="0" placeholder="0.00" value={formPago.monto} onChange={(e) => setFormPago({ ...formPago, monto: e.target.value })} required className="ldg-input font-mono" />
+              <label htmlFor="pago-monto" className="ldg-label">Monto <span className="text-ldg-danger">*</span></label>
+              <input id="pago-monto" type="number" step="0.01" min="0.01" inputMode="decimal" placeholder="0.00" value={formPago.monto} onChange={(e) => setFormPago({ ...formPago, monto: e.target.value })} required className="ldg-input font-mono" />
+              {Number(panelPago.saldo) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFormPago({ ...formPago, monto: Number(panelPago.saldo).toFixed(2) })}
+                  className="ldg-link mt-1 text-[11px] text-ldg-accent"
+                >
+                  Usar saldo completo (${Number(panelPago.saldo).toFixed(2)})
+                </button>
+              )}
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Tipo</label>
-              <select value={formPago.tipo} onChange={(e) => setFormPago({ ...formPago, tipo: e.target.value })} className="ldg-select w-full">
+              <label htmlFor="pago-tipo" className="ldg-label">Tipo</label>
+              <select id="pago-tipo" value={formPago.tipo} onChange={(e) => setFormPago({ ...formPago, tipo: e.target.value })} className="ldg-select w-full">
                 <option value="transferencia">Transferencia</option>
                 <option value="efectivo">Efectivo</option>
                 <option value="otro">Otro</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Notas</label>
-              <input type="text" placeholder="Opcional" value={formPago.notas} onChange={(e) => setFormPago({ ...formPago, notas: e.target.value })} className="ldg-input" />
+              <label htmlFor="pago-notas" className="ldg-label">Notas</label>
+              <input id="pago-notas" type="text" autoComplete="off" placeholder="Opcional" value={formPago.notas} onChange={(e) => setFormPago({ ...formPago, notas: e.target.value })} className="ldg-input" />
             </div>
-            <button type="submit" className="ldg-btn-primary w-full py-2">Registrar pago</button>
+            <div>
+              <span className="ldg-label">Comprobante</span>
+              <ImageUpload
+                imageUrl={formPago.preview}
+                onUpload={(file) => {
+                  if (formPago.preview) URL.revokeObjectURL(formPago.preview)
+                  setFormPago((f) => ({ ...f, file, preview: URL.createObjectURL(file) }))
+                }}
+                onDelete={() => {
+                  if (formPago.preview) URL.revokeObjectURL(formPago.preview)
+                  setFormPago((f) => ({ ...f, file: null, preview: null }))
+                }}
+                pegarGlobal
+                size="w-full h-28"
+                label="comprobante"
+                texto="Opcional: pega, arrastra o toca para elegir"
+              />
+            </div>
+            <button type="submit" disabled={guardando} className="ldg-btn-primary w-full py-2">
+              {guardando ? 'Guardando…' : 'Registrar pago'}
+            </button>
           </form>
         )}
       </SidePanel>
 
-      {/* Panel: editar item */}
+      {/* Panel: editar articulo */}
       <SidePanel
         open={!!panelEditItem}
         onClose={() => setPanelEditItem(null)}
         title={panelEditItem ? `Editar artículo — ${panelEditItem._pc?.cliente_nombre ?? ''}` : ''}
       >
         {panelEditItem && (
-          <form onSubmit={(e) => guardarEditItem(e, panelEditItem._pc)} className="space-y-4">
+          <form onSubmit={guardarEditItem} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Link del artículo</label>
-              <input type="text" placeholder="https://..." value={formEditItem.link} onChange={(e) => setFormEditItem({ ...formEditItem, link: e.target.value })} className="ldg-input" />
+              <label htmlFor="edit-link" className="ldg-label">Link del artículo</label>
+              <input id="edit-link" type="text" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://…" value={formEditItem.link} onChange={(e) => setFormEditItem({ ...formEditItem, link: e.target.value })} className="ldg-input" />
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Nombre del artículo</label>
-              <input type="text" placeholder="Opcional" value={formEditItem.articulo} onChange={(e) => setFormEditItem({ ...formEditItem, articulo: e.target.value })} className="ldg-input" />
+              <label htmlFor="edit-nombre" className="ldg-label">Nombre del artículo</label>
+              <input id="edit-nombre" type="text" autoComplete="off" placeholder="Opcional" value={formEditItem.articulo} onChange={(e) => setFormEditItem({ ...formEditItem, articulo: e.target.value })} className="ldg-input" />
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Precio <span className="text-ldg-danger">*</span></label>
-              <input type="number" step="0.01" min="0" placeholder="0.00" value={formEditItem.precio} onChange={(e) => setFormEditItem({ ...formEditItem, precio: e.target.value })} required className="ldg-input font-mono" />
+              <label htmlFor="edit-precio" className="ldg-label">Precio <span className="text-ldg-danger">*</span></label>
+              <input id="edit-precio" type="number" step="0.01" min="0" inputMode="decimal" placeholder="0.00" value={formEditItem.precio} onChange={(e) => setFormEditItem({ ...formEditItem, precio: e.target.value })} required className="ldg-input font-mono" />
             </div>
-            <button type="submit" className="ldg-btn-primary w-full py-2">Guardar cambios</button>
+            <button type="submit" disabled={guardando} className="ldg-btn-primary w-full py-2">
+              {guardando ? 'Guardando…' : 'Guardar cambios'}
+            </button>
           </form>
         )}
       </SidePanel>
@@ -790,23 +1086,19 @@ export default function PedidoDetalle() {
               Selecciona el pedido al que quieres mover a <strong className="text-ldg-ink">{panelMover.cliente_nombre}</strong>. Sus artículos y pagos se trasladarán al pedido destino.
             </p>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Pedido destino</label>
+              <label htmlFor="mover-destino" className="ldg-label">Pedido destino</label>
               <select
+                id="mover-destino"
                 value={pedidoDestinoId}
                 onChange={(e) => setPedidoDestinoId(e.target.value)}
                 className="ldg-select w-full"
               >
-                <option value="">Seleccionar pedido...</option>
+                <option value="">Seleccionar pedido…</option>
                 {pedidos
                   .filter((p) => p.id !== parseInt(id))
-                  .map((p) => {
-                    const fecha = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })
-                    return (
-                      <option key={p.id} value={p.id}>
-                        #{String(p.numero ?? p.id).padStart(3, '0')} — {fecha}
-                      </option>
-                    )
-                  })}
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{numPedido(p)} — {fechaCorta(p.fecha)}</option>
+                  ))}
               </select>
             </div>
             {panelMover.pagos.length > 0 && (
@@ -816,16 +1108,16 @@ export default function PedidoDetalle() {
             )}
             <button
               onClick={moverCliente}
-              disabled={!pedidoDestinoId}
-              className="ldg-btn-primary w-full py-2 disabled:opacity-40"
+              disabled={!pedidoDestinoId || guardando}
+              className="ldg-btn-primary w-full py-2"
             >
-              Mover cliente
+              {guardando ? 'Moviendo…' : 'Mover cliente'}
             </button>
           </div>
         )}
       </SidePanel>
 
-      {/* Panel: mover artículos sueltos a otro cliente/pedido */}
+      {/* Panel: mover articulos sueltos a otro cliente/pedido */}
       <SidePanel
         open={!!panelMoverItems}
         onClose={() => setPanelMoverItems(null)}
@@ -837,12 +1129,11 @@ export default function PedidoDetalle() {
               Selecciona los artículos y el cliente destino. Se trasladan tal cual (precio, imagen y estado activo se conservan); los pagos no se mueven.
             </p>
 
-            {/* Selección de artículos */}
-            <div>
+            <fieldset>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold tracking-widest uppercase text-ldg-muted">
+                <legend className="text-xs font-semibold tracking-widest uppercase text-ldg-muted">
                   Artículos ({itemsSeleccionados.size}/{panelMoverItems.items.length})
-                </label>
+                </legend>
                 <button
                   type="button"
                   onClick={() => setItemsSeleccionados(
@@ -850,12 +1141,12 @@ export default function PedidoDetalle() {
                       ? new Set()
                       : new Set(panelMoverItems.items.map((i) => i.id))
                   )}
-                  className="text-[11px] text-ldg-accent hover:underline"
+                  className="ldg-link text-[11px] text-ldg-accent"
                 >
                   {itemsSeleccionados.size === panelMoverItems.items.length ? 'Ninguno' : 'Todos'}
                 </button>
               </div>
-              <div className="border border-ldg-line rounded divide-y divide-ldg-line-soft max-h-60 overflow-y-auto">
+              <div className="border border-ldg-line rounded divide-y divide-ldg-line-soft max-h-60 overflow-y-auto overscroll-contain">
                 {panelMoverItems.items.map((item) => (
                   <label key={item.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-ldg-surface-alt">
                     <input
@@ -865,35 +1156,30 @@ export default function PedidoDetalle() {
                       className="accent-ldg-accent"
                     />
                     <span className="font-mono text-[11px] text-ldg-muted">{String(item.numero).padStart(2, '0')}</span>
-                    <span className={`flex-1 text-sm truncate ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted line-through'}`}>
+                    <span className={`flex-1 min-w-0 text-sm truncate ${item.activo ? 'text-ldg-ink' : 'text-ldg-muted line-through'}`}>
                       {item.articulo || `Item #${item.numero}`}
                     </span>
                     <span className="font-mono text-xs text-ldg-ink-soft">${Number(item.precio).toFixed(2)}</span>
                   </label>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
-            {/* Pedido destino */}
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Pedido destino</label>
-              <select value={moverDestPedidoId} onChange={(e) => cambiarPedidoDestino(e.target.value)} className="ldg-select w-full">
-                {pedidos.map((p) => {
-                  const fecha = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })
-                  return (
-                    <option key={p.id} value={p.id}>
-                      #{String(p.numero ?? p.id).padStart(3, '0')} — {fecha}{p.id === parseInt(id) ? ' (este pedido)' : ''}
-                    </option>
-                  )
-                })}
+              <label htmlFor="mover-items-pedido" className="ldg-label">Pedido destino</label>
+              <select id="mover-items-pedido" value={moverDestPedidoId} onChange={(e) => cambiarPedidoDestino(e.target.value)} className="ldg-select w-full">
+                {pedidos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {numPedido(p)} — {fechaCorta(p.fecha)}{p.id === parseInt(id) ? ' (este pedido)' : ''}
+                  </option>
+                ))}
               </select>
             </div>
 
-            {/* Cliente destino */}
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">Cliente destino</label>
-              <select value={moverDestPcId} onChange={(e) => setMoverDestPcId(e.target.value)} className="ldg-select w-full">
-                <option value="">Seleccionar cliente...</option>
+              <label htmlFor="mover-items-cliente" className="ldg-label">Cliente destino</label>
+              <select id="mover-items-cliente" value={moverDestPcId} onChange={(e) => setMoverDestPcId(e.target.value)} className="ldg-select w-full">
+                <option value="">Seleccionar cliente…</option>
                 {(moverDestPedido?.clientes || [])
                   .filter((c) => c.id !== panelMoverItems.id)
                   .map((c) => (
@@ -905,13 +1191,15 @@ export default function PedidoDetalle() {
               )}
             </div>
 
-            {/* Confirmación anti-misclick */}
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-ldg-muted mb-1.5">
+              <label htmlFor="mover-confirmar" className="ldg-label">
                 Escribe <span className="font-mono text-ldg-danger">MOVER</span> para confirmar
               </label>
               <input
+                id="mover-confirmar"
                 type="text"
+                autoComplete="off"
+                spellCheck={false}
                 value={confirmMover}
                 onChange={(e) => setConfirmMover(e.target.value)}
                 placeholder="MOVER"
@@ -921,10 +1209,10 @@ export default function PedidoDetalle() {
 
             <button
               onClick={ejecutarMoverItems}
-              disabled={itemsSeleccionados.size === 0 || !moverDestPcId || confirmMover.trim().toUpperCase() !== 'MOVER'}
-              className="ldg-btn-primary w-full py-2 disabled:opacity-40"
+              disabled={guardando || itemsSeleccionados.size === 0 || !moverDestPcId || confirmMover.trim().toUpperCase() !== 'MOVER'}
+              className="ldg-btn-primary w-full py-2"
             >
-              Mover {itemsSeleccionados.size || ''} artículo(s)
+              {guardando ? 'Moviendo…' : `Mover ${itemsSeleccionados.size || ''} artículo(s)`}
             </button>
           </div>
         )}
