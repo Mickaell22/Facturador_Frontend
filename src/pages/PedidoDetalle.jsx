@@ -8,7 +8,7 @@ import {
   getPedido, getPedidos, getClientes, createCliente, addClienteToPedido, removeClienteFromPedido,
   updateComisionPedidoCliente, moverClientePedido,
   createItem, updateItem, deleteItem, uploadItemImagen, deleteItemImagen, moverItems,
-  createPago, deletePago, uploadComprobante,
+  createPago, deletePago, uploadComprobante, deleteComprobante,
   exportPedidoExcel, errorMsg,
 } from '../api'
 import { initials, avatarClass } from '../utils/avatar'
@@ -412,6 +412,12 @@ export default function PedidoDetalle() {
     catch (err) { toast.error(errorMsg(err, 'Error al subir comprobante')) }
   }
 
+  const eliminarComprobante = async (pc, pagoId) => {
+    if (!await confirm({ title: 'Quitar comprobante', message: '¿Quitar el comprobante de este pago?', confirmText: 'Quitar' })) return
+    try { await deleteComprobante(pc.id, pagoId); recargar() }
+    catch (err) { toast.error(errorMsg(err, 'Error al quitar comprobante')) }
+  }
+
   // Mensaje para WhatsApp: solo articulos activos, igual que la factura
   const copiarMensaje = async (pc) => {
     const url = `${window.location.origin}/p/${pc.token_publico}`
@@ -804,7 +810,12 @@ export default function PedidoDetalle() {
                         <ul className="space-y-1.5">
                           {pc.pagos.map((pago) => (
                             <li key={pago.id} className="flex items-center gap-2">
-                              <ImageUpload imageUrl={pago.comprobante_url} onUpload={(file) => subirComprobante(pc, pago.id, file)} label="comprobante" />
+                              <ImageUpload
+                                imageUrl={pago.comprobante_url}
+                                onUpload={(file) => subirComprobante(pc, pago.id, file)}
+                                onDelete={pago.comprobante_url ? () => eliminarComprobante(pc, pago.id) : undefined}
+                                label="comprobante"
+                              />
                               <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
                                 <span className="text-[11px] font-mono text-ldg-ink-soft truncate" title={pago.notas || undefined}>
                                   {fechaHora(pago.fecha)} · {pago.tipo}{pago.notas ? ` (${pago.notas})` : ''}

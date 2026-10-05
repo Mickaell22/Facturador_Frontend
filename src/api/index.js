@@ -75,6 +75,8 @@ export const uploadItemImagen = (pcId, itemId, file) => {
 export const getPagos = (pcId) => api.get(`/pedido-clientes/${pcId}/pagos`)
 export const createPago = (pcId, data) => api.post(`/pedido-clientes/${pcId}/pagos`, data)
 export const deletePago = (pcId, pagoId) => api.delete(`/pedido-clientes/${pcId}/pagos/${pagoId}`)
+export const deleteComprobante = (pcId, pagoId) =>
+  api.delete(`/pedido-clientes/${pcId}/pagos/${pagoId}/comprobante`)
 export const uploadComprobante = (pcId, pagoId, file) => {
   const form = new FormData()
   form.append('file', file)

@@ -62,7 +62,7 @@ frontend/
 
 ## Autenticacion
 - JWT guardado en localStorage bajo la clave `token`
-- main.jsx extrae `?token=` de la URL sincrónicamente antes de que React monte
+- main.jsx extrae el token de `#token=` (lo que manda el backend; no queda en logs ni Referer) o, por compatibilidad, de `?token=`, sincrónicamente antes de que React monte
 - PrivateRoute redirige a /login si no hay token
 - Interceptor de respuesta: si llega 401, limpia token y redirige a /login
 - Session dura 1 dia; al vencer el backend retorna 401 y se redirige automaticamente

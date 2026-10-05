@@ -5,9 +5,10 @@ import { Toaster } from 'react-hot-toast'
 import App from './App.jsx'
 import './index.css'
 
-// Si el backend redirige con ?token=xxx, guardarlo antes de que React monte
-const _params = new URLSearchParams(window.location.search)
-const _token = _params.get('token')
+// El backend redirige con #token=xxx (fragmento: no queda en logs ni Referer).
+// ?token= se mantiene por compatibilidad con backends anteriores.
+const _token = new URLSearchParams(window.location.hash.slice(1)).get('token')
+  || new URLSearchParams(window.location.search).get('token')
 if (_token) {
   localStorage.setItem('token', _token)
   window.history.replaceState({}, '', window.location.pathname)
