@@ -124,7 +124,7 @@ npm run dev
 - PedidoDetalle: tras una mutacion se llama `recargar()` (solo `getPedido`); `cargar()` (pedido + clientes + pedidos) es solo la carga inicial. El toggle activo es optimista
 - PedidoDetalle, cabecera de cada cliente: "Factura" y "Copiar mensaje" visibles; mover cliente / mover articulos / quitar del pedido van en el menu ⋯ (quitar, en rojo y separado)
 - El mensaje de WhatsApp ("Copiar mensaje") lista SOLO articulos activos, igual que la factura
-- PedidoDetalle, buscador: encuentra clientes por nombre o articulos por nombre/link/precio (coma o punto). Si solo coinciden articulos, el cliente se muestra (aunque este colapsado) con solo esos articulos
+- PedidoDetalle, buscador: encuentra clientes por nombre o articulos por nombre/link/precio (coma o punto). Si solo coinciden articulos, el cliente se muestra (aunque este colapsado) con solo esos articulos. Ademas cada cliente con mas de 3 articulos tiene su propio buscador (estado `buscarEnCliente`, se combina con el general; Esc lo limpia)
 - Dashboard: StatCards arriba + buscador (filtra por cliente, numero o fecha) + lista de pedidos
 - PedidoDetalle: "Factura" abre /factura/:pcId?pedido=:id; "Copiar mensaje" copia resumen + /p/:token; "Exportar Excel" descarga el .xlsx del pedido completo
 - Clientes: los alias se ven como "también: …" en la fila y se agregan/quitan desde el panel de edicion (no hay input por fila)

@@ -21,6 +21,13 @@ const itemVacio = { link: '', articulo: '', precio: '', file: null, preview: nul
 let filaSeq = 0
 const filaVacia = () => ({ key: ++filaSeq, link: '', articulo: '', precio: '', file: null, preview: null })
 const pagoVacio = { monto: '', tipo: 'transferencia', notas: '', file: null, preview: null }
+// Coincidencia de un articulo con una busqueda (nombre, link o precio con coma o punto)
+const itemCoincide = (i, q) => {
+  const qp = q.replace(',', '.')
+  return (i.articulo || '').toLowerCase().includes(q)
+    || (i.link || '').toLowerCase().includes(q)
+    || (i.precio != null && Number(i.precio).toFixed(2).includes(qp))
+}
 const numPedido = (p) => `#${String(p.numero ?? p.id).padStart(3, '0')}`
 
 function StatCell({ label, value, accent, last }) {
@@ -115,6 +122,7 @@ export default function PedidoDetalle() {
   const [comisionInput, setComisionInput] = useState('')
   const [busquedaPedido, setBusquedaPedido] = useState('')
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('todos')
+  const [buscarEnCliente, setBuscarEnCliente] = useState({}) // pc.id -> texto
 
   const [panelMover, setPanelMover] = useState(null)
   const [pedidoDestinoId, setPedidoDestinoId] = useState('')
@@ -593,15 +601,11 @@ export default function PedidoDetalle() {
   // precio ("13,67" = "13.67"). Si coincide el cliente se ven todos sus items;
   // si solo coinciden articulos, se ven solo esos (aunque el cliente este colapsado).
   const q = busquedaPedido.trim().toLowerCase()
-  const qPrecio = q.replace(',', '.')
   const itemsBusqueda = new Map()
   if (q) {
     for (const pc of pedido.clientes) {
       if (pc.cliente_nombre.toLowerCase().includes(q)) continue
-      itemsBusqueda.set(pc.id, pc.items.filter((i) =>
-        (i.articulo || '').toLowerCase().includes(q)
-        || (i.link || '').toLowerCase().includes(q)
-        || (i.precio != null && Number(i.precio).toFixed(2).includes(qPrecio))))
+      itemsBusqueda.set(pc.id, pc.items.filter((i) => itemCoincide(i, q)))
     }
   }
 
@@ -728,8 +732,10 @@ export default function PedidoDetalle() {
         {clientesFiltrados.map((pc) => {
           const pagado = Number(pc.saldo) <= 0
           const pct = Number(pc.total) > 0 ? Math.min(100, (Number(pc.total_pagado) / Number(pc.total)) * 100) : 0
-          const itemsVer = itemsBusqueda.get(pc.id) ?? pc.items
-          const filtrandoItems = itemsBusqueda.has(pc.id)
+          // Buscador propio de cada cliente: se suma al general de arriba
+          const qCliente = (buscarEnCliente[pc.id] || '').trim().toLowerCase()
+          const itemsVer = (itemsBusqueda.get(pc.id) ?? pc.items).filter((i) => !qCliente || itemCoincide(i, qCliente))
+          const filtrandoItems = itemsBusqueda.has(pc.id) || !!qCliente
           const colapsado = colapsados.has(pc.id) && !filtrandoItems
           const activos = pc.items.filter((i) => i.activo).length
 
@@ -838,6 +844,25 @@ export default function PedidoDetalle() {
 
               {!colapsado && (
                 <>
+                  {pc.items.length > 3 && (
+                    <div className="px-4 pt-2">
+                      <div className="ldg-search max-w-xs">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ldg-muted flex-shrink-0" aria-hidden="true">
+                          <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+                        </svg>
+                        <input
+                          type="search"
+                          value={buscarEnCliente[pc.id] || ''}
+                          onChange={(e) => setBuscarEnCliente((b) => ({ ...b, [pc.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setBuscarEnCliente((b) => ({ ...b, [pc.id]: '' })) } }}
+                          placeholder="Buscar artículo o precio…"
+                          aria-label={`Buscar artículo o precio de ${pc.cliente_nombre}`}
+                          autoComplete="off"
+                          className="flex-1 min-w-0 bg-transparent text-xs text-ldg-ink placeholder:text-ldg-muted-soft focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
                   {/* ponytail: tabla de ancho minimo con scroll horizontal en movil;
                       si se usa mucho en celular, pasar a layout de tarjeta por item */}
                   <div className="overflow-x-auto">
@@ -853,7 +878,7 @@ export default function PedidoDetalle() {
 
                       {filtrandoItems && (
                         <div className="px-4 py-1.5 text-[11px] text-ldg-muted border-b border-ldg-line-soft">
-                          {itemsVer.length} de {pc.items.length} artículos coinciden con «{busquedaPedido.trim()}»
+                          {itemsVer.length} de {pc.items.length} artículos coinciden
                         </div>
                       )}
                       {pc.items.length === 0 && (
