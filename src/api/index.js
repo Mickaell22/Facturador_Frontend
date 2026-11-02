@@ -58,6 +58,8 @@ export const moverClientePedido = (pedidoId, clienteId, destinoPedidoId) =>
 // ── Items ─────────────────────────────────────────────
 export const getItems = (pcId) => api.get(`/pedido-clientes/${pcId}/items`)
 export const createItem = (pcId, data) => api.post(`/pedido-clientes/${pcId}/items`, data)
+// Carga en lote ("Cargar carrito"): un solo insert; devuelve los items en el mismo orden
+export const createItemsLote = (pcId, items) => api.post(`/pedido-clientes/${pcId}/items/lote`, { items })
 export const updateItem = (pcId, itemId, data) => api.put(`/pedido-clientes/${pcId}/items/${itemId}`, data)
 export const deleteItem = (pcId, itemId) => api.delete(`/pedido-clientes/${pcId}/items/${itemId}`)
 export const deleteItemImagen = (pcId, itemId) =>

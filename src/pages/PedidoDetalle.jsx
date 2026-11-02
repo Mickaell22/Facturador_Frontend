@@ -7,7 +7,7 @@ import Cargando from '../components/Cargando'
 import {
   getPedido, getPedidos, getClientes, createCliente, addClienteToPedido, removeClienteFromPedido,
   updateComisionPedidoCliente, moverClientePedido,
-  createItem, updateItem, deleteItem, uploadItemImagen, deleteItemImagen, moverItems,
+  createItem, createItemsLote, updateItem, deleteItem, uploadItemImagen, deleteItemImagen, moverItems,
   createPago, deletePago, uploadComprobante, deleteComprobante,
   exportPedidoExcel, errorMsg,
 } from '../api'
@@ -17,6 +17,8 @@ import { useConfirm } from '../context/ConfirmContext'
 
 const ITEM_COL = '36px 52px 1fr 96px 56px 64px'
 const itemVacio = { link: '', articulo: '', precio: '', file: null, preview: null }
+let filaSeq = 0
+const filaVacia = () => ({ key: ++filaSeq, link: '', articulo: '', precio: '', file: null, preview: null })
 const pagoVacio = { monto: '', tipo: 'transferencia', notas: '', file: null, preview: null }
 const numPedido = (p) => `#${String(p.numero ?? p.id).padStart(3, '0')}`
 
@@ -96,6 +98,10 @@ export default function PedidoDetalle() {
   const [formItem, setFormItem] = useState(itemVacio)
   const [agregadosPanel, setAgregadosPanel] = useState(0)
   const primerCampoItem = useRef(null)
+
+  const [panelCarrito, setPanelCarrito] = useState(null)
+  const [filas, setFilas] = useState([])
+  const panelCarritoRef = useRef(null)
 
   const [panelEditItem, setPanelEditItem] = useState(null)
   const [formEditItem, setFormEditItem] = useState({ link: '', articulo: '', precio: '' })
@@ -318,6 +324,79 @@ export default function PedidoDetalle() {
       setAgregadosPanel((n) => n + 1)
       toast.success('Artículo agregado')
       primerCampoItem.current?.focus()
+    }
+  }
+
+  // ── Cargar carrito: varias filas, un solo insert ──
+  const abrirCarrito = (pc) => {
+    setFilas([filaVacia(), filaVacia(), filaVacia()])
+    setPanelCarrito(pc)
+  }
+
+  const cerrarCarrito = () => {
+    filas.forEach((f) => f.preview && URL.revokeObjectURL(f.preview))
+    setFilas([])
+    setPanelCarrito(null)
+  }
+
+  const editarFila = (key, cambios) =>
+    setFilas((fs) => fs.map((f) => f.key === key ? { ...f, ...cambios } : f))
+
+  const fotoFila = (key, file) => setFilas((fs) => fs.map((f) => {
+    if (f.key !== key) return f
+    if (f.preview) URL.revokeObjectURL(f.preview)
+    return { ...f, file, preview: file ? URL.createObjectURL(file) : null }
+  }))
+
+  const quitarFila = (key) => setFilas((fs) => {
+    const f = fs.find((x) => x.key === key)
+    if (f?.preview) URL.revokeObjectURL(f.preview)
+    const resto = fs.filter((x) => x.key !== key)
+    return resto.length ? resto : [filaVacia()]
+  })
+
+  // Agrega una fila y enfoca su link (Enter en el precio de la ultima fila)
+  const agregarFila = () => {
+    const nueva = filaVacia()
+    setFilas((fs) => [...fs, nueva])
+    setTimeout(() => panelCarritoRef.current?.querySelector(`[data-fila="${nueva.key}"]`)?.focus(), 0)
+  }
+
+  // Pegar una imagen con el foco en cualquier campo de la fila la asigna a esa fila
+  const pegarEnFila = (key, e) => {
+    for (const it of e.clipboardData?.items ?? []) {
+      if (it.type.startsWith('image/')) { e.preventDefault(); fotoFila(key, it.getAsFile()); return }
+    }
+  }
+
+  const filaVaciaP = (f) => !f.link.trim() && !f.articulo.trim() && !f.precio && !f.file
+
+  const guardarCarrito = async (e) => {
+    e.preventDefault()
+    const llenas = filas.filter((f) => !filaVaciaP(f))
+    if (!llenas.length) return toast.error('Agrega al menos un artículo')
+    const sinPrecio = llenas.findIndex((f) => f.precio === '')
+    if (sinPrecio >= 0) return toast.error(`Falta el precio en el artículo ${sinPrecio + 1}`)
+    const pc = panelCarrito
+    let fotosFallidas = 0
+    const ok = await ejecutar(async () => {
+      const { data: creados } = await createItemsLote(pc.id, llenas.map((f) => ({
+        link: f.link.trim() || null,
+        articulo: f.articulo.trim() || null,
+        precio: parseFloat(f.precio),
+      })))
+      // ponytail: fotos de a una tras el insert (el endpoint de imagen ya existe);
+      // si falla alguna, el articulo queda creado y la foto se pega en la fila
+      for (let i = 0; i < llenas.length; i++) {
+        if (!llenas[i].file) continue
+        try { await uploadItemImagen(pc.id, creados[i].id, llenas[i].file) } catch { fotosFallidas++ }
+      }
+      await recargar()
+    }, 'Error al cargar el carrito')
+    if (ok) {
+      toast.success(`${llenas.length} artículo(s) cargado(s)`)
+      if (fotosFallidas) toast.error(`${fotosFallidas} foto(s) no se pudieron subir. Pégalas en la fila.`)
+      cerrarCarrito()
     }
   }
 
@@ -795,6 +874,12 @@ export default function PedidoDetalle() {
                     >
                       + AGREGAR ARTÍCULO
                     </button>
+                    <button
+                      onClick={() => abrirCarrito(pc)}
+                      className="ldg-link text-xs font-semibold text-ldg-accent tracking-wide ml-4"
+                    >
+                      + CARGAR CARRITO
+                    </button>
                   </div>
 
                   {/* Footer: pagos | totals */}
@@ -996,6 +1081,92 @@ export default function PedidoDetalle() {
                 ? `${agregadosPanel} agregado(s). El panel sigue abierto para el siguiente; Esc o "Listo" para cerrar.`
                 : 'El panel queda abierto para cargar varios artículos seguidos.'}
             </p>
+          </form>
+        )}
+      </SidePanel>
+
+      {/* Panel: cargar carrito (varios articulos, un solo guardado) */}
+      <SidePanel
+        open={!!panelCarrito}
+        onClose={cerrarCarrito}
+        title={panelCarrito ? `Cargar carrito — ${panelCarrito.cliente_nombre}` : ''}
+        width="sm:w-[40rem]"
+      >
+        {panelCarrito && (
+          <form ref={panelCarritoRef} onSubmit={guardarCarrito} className="space-y-3">
+            <p className="text-[11px] text-ldg-muted">
+              Una fila por artículo. Pega la foto con Ctrl+V estando en cualquier campo de la fila.
+              Las filas vacías se ignoran.
+            </p>
+            <ol className="space-y-2">
+              {filas.map((f, idx) => (
+                <li
+                  key={f.key}
+                  onPaste={(e) => pegarEnFila(f.key, e)}
+                  className="flex gap-2 items-start p-2 rounded-lg border border-ldg-line-soft"
+                >
+                  <span className="text-[11px] font-mono text-ldg-muted w-5 pt-2 text-right">{idx + 1}</span>
+                  <ImageUpload
+                    imageUrl={f.preview}
+                    onUpload={(file) => fotoFila(f.key, file)}
+                    onDelete={() => fotoFila(f.key, null)}
+                    size="w-14 h-14"
+                    label={`foto del artículo ${idx + 1}`}
+                  />
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <input
+                      data-fila={f.key}
+                      type="text" inputMode="url" autoComplete="off" spellCheck={false}
+                      aria-label={`Link del artículo ${idx + 1}`}
+                      placeholder="Link https://…"
+                      value={f.link}
+                      onChange={(e) => editarFila(f.key, { link: e.target.value })}
+                      className="ldg-input py-1.5 text-sm"
+                    />
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text" autoComplete="off"
+                        aria-label={`Nombre del artículo ${idx + 1}`}
+                        placeholder="Nombre (opcional)"
+                        value={f.articulo}
+                        onChange={(e) => editarFila(f.key, { articulo: e.target.value })}
+                        className="ldg-input py-1.5 text-sm flex-1 min-w-0"
+                      />
+                      <input
+                        type="number" step="0.01" min="0" inputMode="decimal"
+                        aria-label={`Precio del artículo ${idx + 1}`}
+                        placeholder="0.00"
+                        value={f.precio}
+                        onChange={(e) => editarFila(f.key, { precio: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && idx === filas.length - 1) { e.preventDefault(); agregarFila() }
+                        }}
+                        className="ldg-input py-1.5 text-sm font-mono w-24"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => quitarFila(f.key)}
+                    aria-label={`Quitar fila ${idx + 1}`}
+                    className="ldg-icon-btn text-lg leading-none pt-1"
+                  >
+                    &times;
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <button type="button" onClick={agregarFila} className="ldg-link text-xs font-semibold text-ldg-accent tracking-wide">
+              + OTRA FILA
+            </button>
+            <div className="flex gap-2 pt-2">
+              <button type="submit" disabled={guardando} className="ldg-btn-primary flex-1 py-2">
+                {guardando
+                  ? 'Guardando…'
+                  : `Guardar ${filas.filter((f) => !filaVaciaP(f)).length} artículo(s)`}
+              </button>
+              <button type="button" onClick={cerrarCarrito} className="ldg-btn-ghost py-2">Cancelar</button>
+            </div>
           </form>
         )}
       </SidePanel>
