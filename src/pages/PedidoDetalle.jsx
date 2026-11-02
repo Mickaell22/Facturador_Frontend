@@ -13,6 +13,7 @@ import {
 } from '../api'
 import { initials, avatarClass } from '../utils/avatar'
 import { fechaCorta, fechaLarga, fechaHora } from '../utils/fecha'
+import { limpiarMonto } from '../utils/monto'
 import { useConfirm } from '../context/ConfirmContext'
 
 const ITEM_COL = '36px 52px 1fr 96px 56px 64px'
@@ -302,7 +303,7 @@ export default function PedidoDetalle() {
   // (link, foto pegada y precio) sin volver a abrirlo.
   const agregarItem = async (e) => {
     e.preventDefault()
-    if (!formItem.precio) return toast.error('El precio es requerido')
+    if (isNaN(parseFloat(formItem.precio))) return toast.error('El precio es requerido')
     const pc = pedido.clientes.find((c) => c.id === panelItem.id) ?? panelItem
     const ok = await ejecutar(async () => {
       const numero = pc.items.reduce((m, i) => Math.max(m, i.numero ?? 0), 0) + 1
@@ -337,6 +338,27 @@ export default function PedidoDetalle() {
     filas.forEach((f) => f.preview && URL.revokeObjectURL(f.preview))
     setFilas([])
     setPanelCarrito(null)
+  }
+
+  // Esc o clic fuera no deben tirar un carrito a medio cargar sin preguntar
+  const cancelarCarrito = async () => {
+    const n = filas.filter((f) => !filaVaciaP(f)).length
+    if (n && !await confirm({
+      title: 'Descartar carrito',
+      message: `Hay ${n} artículo(s) sin guardar. ¿Cerrar y descartarlos?`,
+      confirmText: 'Descartar',
+    })) return
+    cerrarCarrito()
+  }
+
+  // Enter no envia el form (antes guardaba el carrito a medias): pasa al campo
+  // siguiente, y en el precio de la ultima fila agrega una fila nueva
+  const enterEnCarrito = (e) => {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return
+    e.preventDefault()
+    const campos = [...panelCarritoRef.current.querySelectorAll('input[type="text"]')]
+    const sig = campos[campos.indexOf(e.target) + 1]
+    sig ? sig.focus() : agregarFila()
   }
 
   const editarFila = (key, cambios) =>
@@ -387,8 +409,8 @@ export default function PedidoDetalle() {
     e.preventDefault()
     const llenas = filas.filter((f) => !filaVaciaP(f))
     if (!llenas.length) return toast.error('Agrega al menos un artículo')
-    const sinPrecio = llenas.findIndex((f) => f.precio === '')
-    if (sinPrecio >= 0) return toast.error(`Falta el precio en el artículo ${sinPrecio + 1}`)
+    const sinPrecio = filas.findIndex((f) => !filaVaciaP(f) && isNaN(parseFloat(f.precio)))
+    if (sinPrecio >= 0) return toast.error(`Falta el precio en la fila ${sinPrecio + 1}`)
     const pc = panelCarrito
     let fotosFallidas = 0
     const ok = await ejecutar(async () => {
@@ -414,7 +436,7 @@ export default function PedidoDetalle() {
 
   const guardarEditItem = async (e) => {
     e.preventDefault()
-    if (!formEditItem.precio) return toast.error('El precio es requerido')
+    if (isNaN(parseFloat(formEditItem.precio))) return toast.error('El precio es requerido')
     const pc = panelEditItem._pc
     const ok = await ejecutar(() => updateItem(pc.id, panelEditItem.id, {
       link: formEditItem.link.trim() || null,
@@ -567,9 +589,24 @@ export default function PedidoDetalle() {
 
   const todosColapsados = pedido.clientes.length > 0 && pedido.clientes.every((pc) => colapsados.has(pc.id))
 
+  // El buscador encuentra clientes por nombre o articulos por nombre, link o
+  // precio ("13,67" = "13.67"). Si coincide el cliente se ven todos sus items;
+  // si solo coinciden articulos, se ven solo esos (aunque el cliente este colapsado).
+  const q = busquedaPedido.trim().toLowerCase()
+  const qPrecio = q.replace(',', '.')
+  const itemsBusqueda = new Map()
+  if (q) {
+    for (const pc of pedido.clientes) {
+      if (pc.cliente_nombre.toLowerCase().includes(q)) continue
+      itemsBusqueda.set(pc.id, pc.items.filter((i) =>
+        (i.articulo || '').toLowerCase().includes(q)
+        || (i.link || '').toLowerCase().includes(q)
+        || (i.precio != null && Number(i.precio).toFixed(2).includes(qPrecio))))
+    }
+  }
+
   const clientesFiltrados = pedido.clientes.filter((pc) => {
-    const q = busquedaPedido.trim().toLowerCase()
-    if (q && !pc.cliente_nombre.toLowerCase().includes(q)) return false
+    if (itemsBusqueda.get(pc.id)?.length === 0) return false
     if (filtroEstadoPedido === 'pendientes') return Number(pc.saldo) > 0
     if (filtroEstadoPedido === 'pagados')    return Number(pc.saldo) <= 0
     return true
@@ -634,7 +671,7 @@ export default function PedidoDetalle() {
       )}
 
       {/* Search/filter bar */}
-      {pedido.clientes.length > 1 && (
+      {pedido.clientes.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           <div className="ldg-search flex-1 min-w-[200px] max-w-xs">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ldg-muted flex-shrink-0" aria-hidden="true">
@@ -644,8 +681,8 @@ export default function PedidoDetalle() {
               type="search"
               value={busquedaPedido}
               onChange={(e) => setBusquedaPedido(e.target.value)}
-              placeholder="Buscar cliente…"
-              aria-label="Buscar cliente en este pedido"
+              placeholder="Buscar cliente, artículo o precio…"
+              aria-label="Buscar cliente, artículo o precio en este pedido"
               autoComplete="off"
               className="flex-1 min-w-0 bg-transparent text-sm text-ldg-ink placeholder:text-ldg-muted-soft focus:outline-none"
             />
@@ -683,7 +720,7 @@ export default function PedidoDetalle() {
         </div>
       )}
       {pedido.clientes.length > 0 && clientesFiltrados.length === 0 && (
-        <p className="text-center py-10 text-ldg-muted text-sm">Ningún cliente coincide con el filtro.</p>
+        <p className="text-center py-10 text-ldg-muted text-sm">Ningún cliente ni artículo coincide con el filtro.</p>
       )}
 
       {/* Client cards */}
@@ -691,7 +728,9 @@ export default function PedidoDetalle() {
         {clientesFiltrados.map((pc) => {
           const pagado = Number(pc.saldo) <= 0
           const pct = Number(pc.total) > 0 ? Math.min(100, (Number(pc.total_pagado) / Number(pc.total)) * 100) : 0
-          const colapsado = colapsados.has(pc.id)
+          const itemsVer = itemsBusqueda.get(pc.id) ?? pc.items
+          const filtrandoItems = itemsBusqueda.has(pc.id)
+          const colapsado = colapsados.has(pc.id) && !filtrandoItems
           const activos = pc.items.filter((i) => i.activo).length
 
           return (
@@ -716,9 +755,9 @@ export default function PedidoDetalle() {
                       >
                         <span className="text-xs text-ldg-muted font-mono">$</span>
                         <input
-                          type="number" step="0.01" min="0" inputMode="decimal"
+                          type="text" inputMode="decimal" autoComplete="off"
                           value={comisionInput}
-                          onChange={(e) => setComisionInput(e.target.value)}
+                          onChange={(e) => setComisionInput(limpiarMonto(e.target.value))}
                           onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditandoComision(null) } }}
                           aria-label={`Comisión por artículo de ${pc.cliente_nombre}`}
                           autoFocus
@@ -812,10 +851,15 @@ export default function PedidoDetalle() {
                         <span className="text-center">Activo</span><span></span>
                       </div>
 
+                      {filtrandoItems && (
+                        <div className="px-4 py-1.5 text-[11px] text-ldg-muted border-b border-ldg-line-soft">
+                          {itemsVer.length} de {pc.items.length} artículos coinciden con «{busquedaPedido.trim()}»
+                        </div>
+                      )}
                       {pc.items.length === 0 && (
                         <div className="px-4 py-3 text-xs text-ldg-muted italic">Sin artículos aún.</div>
                       )}
-                      {pc.items.map((item) => {
+                      {itemsVer.map((item) => {
                         const nombre = item.articulo || `Item #${item.numero}`
                         return (
                           <div
@@ -1080,7 +1124,7 @@ export default function PedidoDetalle() {
             </div>
             <div>
               <label htmlFor="item-precio" className="ldg-label">Precio <span className="text-ldg-danger">*</span></label>
-              <input id="item-precio" type="number" step="0.01" min="0" inputMode="decimal" placeholder="0.00" value={formItem.precio} onChange={(e) => setFormItem({ ...formItem, precio: e.target.value })} required className="ldg-input font-mono" />
+              <input id="item-precio" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" value={formItem.precio} onChange={(e) => setFormItem({ ...formItem, precio: limpiarMonto(e.target.value) })} required className="ldg-input font-mono" />
             </div>
             <div className="flex gap-2">
               <button type="submit" disabled={guardando} className="ldg-btn-primary flex-1 py-2">
@@ -1100,12 +1144,12 @@ export default function PedidoDetalle() {
       {/* Panel: cargar carrito (varios articulos, un solo guardado) */}
       <SidePanel
         open={!!panelCarrito}
-        onClose={cerrarCarrito}
+        onClose={cancelarCarrito}
         title={panelCarrito ? `Cargar carrito — ${panelCarrito.cliente_nombre}` : ''}
         width="sm:w-[40rem]"
       >
         {panelCarrito && (
-          <form ref={panelCarritoRef} onSubmit={guardarCarrito} onPaste={pegarEnCarrito} className="space-y-3">
+          <form ref={panelCarritoRef} onSubmit={guardarCarrito} onPaste={pegarEnCarrito} onKeyDown={enterEnCarrito} className="space-y-3">
             <p className="text-[11px] text-ldg-muted">
               Una fila por artículo. Ctrl+V pega la foto en la primera fila sin foto (desde la actual)
               y no reemplaza ninguna; para cambiar una foto usa «cambiar». Las filas vacías se ignoran.
@@ -1145,14 +1189,11 @@ export default function PedidoDetalle() {
                         className="ldg-input py-1.5 text-sm flex-1 min-w-0"
                       />
                       <input
-                        type="number" step="0.01" min="0" inputMode="decimal"
+                        type="text" inputMode="decimal" autoComplete="off"
                         aria-label={`Precio del artículo ${idx + 1}`}
                         placeholder="0.00"
                         value={f.precio}
-                        onChange={(e) => editarFila(f.key, { precio: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && idx === filas.length - 1) { e.preventDefault(); agregarFila() }
-                        }}
+                        onChange={(e) => editarFila(f.key, { precio: limpiarMonto(e.target.value) })}
                         className="ldg-input py-1.5 text-sm font-mono w-24"
                       />
                     </div>
@@ -1177,7 +1218,7 @@ export default function PedidoDetalle() {
                   ? 'Guardando…'
                   : `Guardar ${filas.filter((f) => !filaVaciaP(f)).length} artículo(s)`}
               </button>
-              <button type="button" onClick={cerrarCarrito} className="ldg-btn-ghost py-2">Cancelar</button>
+              <button type="button" onClick={cancelarCarrito} className="ldg-btn-ghost py-2">Cancelar</button>
             </div>
           </form>
         )}
@@ -1193,7 +1234,7 @@ export default function PedidoDetalle() {
           <form onSubmit={registrarPago} className="space-y-4">
             <div>
               <label htmlFor="pago-monto" className="ldg-label">Monto <span className="text-ldg-danger">*</span></label>
-              <input id="pago-monto" type="number" step="0.01" min="0.01" inputMode="decimal" placeholder="0.00" value={formPago.monto} onChange={(e) => setFormPago({ ...formPago, monto: e.target.value })} required className="ldg-input font-mono" />
+              <input id="pago-monto" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" value={formPago.monto} onChange={(e) => setFormPago({ ...formPago, monto: limpiarMonto(e.target.value) })} required className="ldg-input font-mono" />
               {Number(panelPago.saldo) > 0 && (
                 <button
                   type="button"
@@ -1259,7 +1300,7 @@ export default function PedidoDetalle() {
             </div>
             <div>
               <label htmlFor="edit-precio" className="ldg-label">Precio <span className="text-ldg-danger">*</span></label>
-              <input id="edit-precio" type="number" step="0.01" min="0" inputMode="decimal" placeholder="0.00" value={formEditItem.precio} onChange={(e) => setFormEditItem({ ...formEditItem, precio: e.target.value })} required className="ldg-input font-mono" />
+              <input id="edit-precio" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" value={formEditItem.precio} onChange={(e) => setFormEditItem({ ...formEditItem, precio: limpiarMonto(e.target.value) })} required className="ldg-input font-mono" />
             </div>
             <button type="submit" disabled={guardando} className="ldg-btn-primary w-full py-2">
               {guardando ? 'Guardando…' : 'Guardar cambios'}

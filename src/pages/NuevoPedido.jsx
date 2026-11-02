@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { createPedido, errorMsg } from '../api'
 import { hoyLocal } from '../utils/fecha'
 import toast from 'react-hot-toast'
+import { limpiarEntero } from '../utils/monto'
 
 export default function NuevoPedido() {
   const navigate = useNavigate()
@@ -66,11 +67,11 @@ export default function NuevoPedido() {
               <label htmlFor="np-numero" className="block text-[11px] text-ldg-muted mb-1">Número (opcional)</label>
               <input
                 id="np-numero"
-                type="number"
+                type="text"
                 inputMode="numeric"
                 autoFocus
                 value={form.numero}
-                onChange={(e) => setForm({ ...form, numero: e.target.value })}
+                onChange={(e) => setForm({ ...form, numero: limpiarEntero(e.target.value) })}
                 placeholder="Ej: 17"
                 className="ldg-input font-mono"
               />

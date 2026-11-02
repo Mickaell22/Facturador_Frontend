@@ -8,6 +8,7 @@ import Cargando from '../components/Cargando'
 import { initials, avatarClass } from '../utils/avatar'
 import { fechaCorta } from '../utils/fecha'
 import { useConfirm } from '../context/ConfirmContext'
+import { limpiarEntero } from '../utils/monto'
 
 function StatCell({ label, value, sub, accent, dark: darkBg }) {
   return (
@@ -307,10 +308,10 @@ export default function Dashboard() {
             <label htmlFor="edit-numero" className="ldg-label">Número</label>
             <input
               id="edit-numero"
-              type="number"
+              type="text"
               inputMode="numeric"
               value={formEditar.numero}
-              onChange={(e) => setFormEditar({ ...formEditar, numero: e.target.value })}
+              onChange={(e) => setFormEditar({ ...formEditar, numero: limpiarEntero(e.target.value) })}
               className="ldg-input font-mono"
             />
           </div>

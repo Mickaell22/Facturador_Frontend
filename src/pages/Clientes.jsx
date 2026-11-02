@@ -6,6 +6,7 @@ import Cargando from '../components/Cargando'
 import { getClientes, createCliente, updateCliente, deleteCliente, addAlias, deleteAlias, errorMsg } from '../api'
 import { initials, avatarClass } from '../utils/avatar'
 import { useConfirm } from '../context/ConfirmContext'
+import { limpiarMonto } from '../utils/monto'
 
 const COL = '40px 1fr 110px 80px 72px'
 const formVacio = { nombre: '', comision_por_item: '0.50' }
@@ -228,12 +229,11 @@ export default function Clientes() {
             <label htmlFor="cli-comision" className="ldg-label">Comisión por item ($)</label>
             <input
               id="cli-comision"
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
               inputMode="decimal"
+              autoComplete="off"
               value={form.comision_por_item}
-              onChange={(e) => setForm({ ...form, comision_por_item: e.target.value })}
+              onChange={(e) => setForm({ ...form, comision_por_item: limpiarMonto(e.target.value) })}
               className="ldg-input font-mono"
             />
             <p className="text-xs text-ldg-muted mt-1">Usa 0 si no cobras comisión.</p>
