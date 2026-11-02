@@ -362,11 +362,23 @@ export default function PedidoDetalle() {
     setTimeout(() => panelCarritoRef.current?.querySelector(`[data-fila="${nueva.key}"]`)?.focus(), 0)
   }
 
-  // Pegar una imagen con el foco en cualquier campo de la fila la asigna a esa fila
-  const pegarEnFila = (key, e) => {
-    for (const it of e.clipboardData?.items ?? []) {
-      if (it.type.startsWith('image/')) { e.preventDefault(); fotoFila(key, it.getAsFile()); return }
+  // Pegar nunca pisa una foto: va a la primera fila sin foto desde la enfocada
+  // (o a una fila nueva) y el foco salta ahi. Al volver de copiar en Temu el
+  // navegador devuelve el foco a la fila anterior; antes eso sobreescribia su foto.
+  const pegarEnCarrito = (e) => {
+    const it = [...(e.clipboardData?.items ?? [])].find((x) => x.type.startsWith('image/'))
+    if (!it) return
+    e.preventDefault()
+    const file = it.getAsFile()
+    const desde = Math.max(0, filas.findIndex((f) => String(f.key) === e.target.closest?.('[data-key]')?.dataset.key))
+    let destino = filas.slice(desde).find((f) => !f.file)
+    if (destino) {
+      fotoFila(destino.key, file)
+    } else {
+      destino = { ...filaVacia(), file, preview: URL.createObjectURL(file) }
+      setFilas((fs) => [...fs, destino])
     }
+    setTimeout(() => panelCarritoRef.current?.querySelector(`[data-fila="${destino.key}"]`)?.focus(), 0)
   }
 
   const filaVaciaP = (f) => !f.link.trim() && !f.articulo.trim() && !f.precio && !f.file
@@ -1093,16 +1105,16 @@ export default function PedidoDetalle() {
         width="sm:w-[40rem]"
       >
         {panelCarrito && (
-          <form ref={panelCarritoRef} onSubmit={guardarCarrito} className="space-y-3">
+          <form ref={panelCarritoRef} onSubmit={guardarCarrito} onPaste={pegarEnCarrito} className="space-y-3">
             <p className="text-[11px] text-ldg-muted">
-              Una fila por artículo. Pega la foto con Ctrl+V estando en cualquier campo de la fila.
-              Las filas vacías se ignoran.
+              Una fila por artículo. Ctrl+V pega la foto en la primera fila sin foto (desde la actual)
+              y no reemplaza ninguna; para cambiar una foto usa «cambiar». Las filas vacías se ignoran.
             </p>
             <ol className="space-y-2">
               {filas.map((f, idx) => (
                 <li
                   key={f.key}
-                  onPaste={(e) => pegarEnFila(f.key, e)}
+                  data-key={f.key}
                   className="flex gap-2 items-start p-2 rounded-lg border border-ldg-line-soft"
                 >
                   <span className="text-[11px] font-mono text-ldg-muted w-5 pt-2 text-right">{idx + 1}</span>

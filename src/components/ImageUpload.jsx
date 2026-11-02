@@ -36,6 +36,7 @@ export default function ImageUpload({
   useEffect(() => {
     if (!escuchar) return
     const handler = (e) => {
+      if (e.defaultPrevented) return // ya lo tomo otro handler (p.ej. el panel de carrito)
       const items = e.clipboardData?.items
       if (!items) return
       for (const item of items) {
